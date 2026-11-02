@@ -16,3 +16,8 @@ frontend/dist/
 
 # OS
 .DS_Store
+
+# Local backend context
+/AGENTS.md
+/docs/backend-plan.md
+/docs/database.md
