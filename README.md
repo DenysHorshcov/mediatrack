@@ -21,6 +21,7 @@ cd backend
 uv python install
 uv sync --locked
 uv run --locked python -m app.check_db
+uv run --locked alembic upgrade head
 uv run --locked uvicorn app.main:app --reload
 ```
 
@@ -46,4 +47,11 @@ npm run dev
 ```sh
 uv run --locked python -m app.check_db --test
 uv run --locked pytest -q
+```
+
+Інтеграційні перевірки на окремій БД з `TEST_DATABASE_URL`, відмінній від `DATABASE_URL`:
+
+```sh
+uv run --locked alembic -x database=test upgrade head
+uv run --locked pytest -q --database-tests
 ```
