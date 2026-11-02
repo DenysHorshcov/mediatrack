@@ -1,7 +1,5 @@
 import type { LoginInput, RegisterInput, User } from "@/types/auth";
-import { mockApi } from "@/lib/mock-api";
 
-const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "true";
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 export class ApiError extends Error {
@@ -42,19 +40,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-export const api = USE_MOCKS
-  ? mockApi
-  : {
-      register: (input: RegisterInput) =>
-        request<{ user: User }>("/auth/register", {
-          method: "POST",
-          body: JSON.stringify(input),
-        }),
-      login: (input: LoginInput) =>
-        request<{ user: User }>("/auth/login", {
-          method: "POST",
-          body: JSON.stringify(input),
-        }),
-      logout: () => request<void>("/auth/logout", { method: "POST" }),
-      me: () => request<{ user: User }>("/auth/me"),
-    };
+export const api = {
+  register: (input: RegisterInput) =>
+    request<{ user: User }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  login: (input: LoginInput) =>
+    request<{ user: User }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  logout: () => request<void>("/auth/logout", { method: "POST" }),
+  me: () => request<{ user: User }>("/auth/me"),
+};
