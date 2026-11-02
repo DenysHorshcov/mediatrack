@@ -20,6 +20,18 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     test_database_url: SecretStr | None = None
 
+    jwt_secret: SecretStr = SecretStr(
+        "dev-insecure-change-me-must-be-at-least-32-bytes"
+    )
+    jwt_algorithm: str = "HS256"
+    jwt_expires_minutes: int = 7 * 24 * 60
+
+    session_cookie_name: str = "mediatrack_session"
+    session_cookie_secure: bool = False
+    session_cookie_samesite: str = "lax"
+
+    frontend_origin: str = "http://localhost:5173"
+
     @field_validator("database_url", "test_database_url", mode="before")
     @classmethod
     def normalize_empty_url(cls, value: object) -> object:
