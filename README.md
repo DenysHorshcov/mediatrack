@@ -28,6 +28,18 @@ uv run --locked uvicorn app.main:app --reload
 API: http://localhost:8000/api/health
 Swagger: http://localhost:8000/docs
 
+Демонстраційні дані (з `backend`; пароль для `demo_olena` та `demo_taras` вводиться приховано):
+
+```sh
+uv run --locked python -m app.seed
+```
+
+Оновити зображення схеми та DBML (з `backend`):
+
+```sh
+uv run --locked python -m app.export_schema
+```
+
 ## Фронтенд
 
 В окремому терміналі з кореня репозиторію:
