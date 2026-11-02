@@ -16,3 +16,14 @@ frontend/dist/
 
 # OS
 .DS_Store
+
+# Local backend context
+/AGENTS.md
+/docs/backend-plan.md
+/docs/database.md
+.neon
+
+# Local Neon agent tooling
+/.agents/skills/neon-postgres/
+/.agents/skills/neon-postgres-branches/
+/skills-lock.json

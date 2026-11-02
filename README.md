@@ -1,53 +1,69 @@
 # MediaTrack
 
-Трекер фільмів, серіалів та ігор. Навчальний проєкт групи ТК-42.
-
-Стек: фронт React + TypeScript + Vite, бек Python + FastAPI, база PostgreSQL (Neon).
-
-## Структура
-
-```
-mediatrack/
-├── backend/     # FastAPI
-├── frontend/    # React + Vite
-├── docs/
-└── .github/
-```
+Потрібні uv 0.13.0 та Node.js 22.
 
 ## Налаштування
 
-Скопіювати `.env.example` у `.env` і прописати `DATABASE_URL`, `TMDB_API_KEY`, `RAWG_API_KEY`.
-Справжні ключі в репо не комітимо.
+У корені репозиторію створити `.env`, якщо його ще немає:
 
 ```sh
 cp .env.example .env
 ```
 
-## Бекенд
+Заповнити `DATABASE_URL` підключенням до `development`, а `TEST_DATABASE_URL` — до `test`. Підключення отримати приватно у Даниїла.
+
+## Бекенд і перевірка БД
+
+З кореня репозиторію:
 
 ```sh
 cd backend
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-uvicorn app.main:app --reload
+uv python install
+uv sync --locked
+uv run --locked python -m app.check_db
+uv run --locked alembic upgrade head
+uv run --locked uvicorn app.main:app --reload
 ```
 
-Перевірка: `GET http://localhost:8000/api/health` → `{"status":"ok"}`.
-Тести: `pytest`.
+API: http://localhost:8000/api/health
+Swagger: http://localhost:8000/docs
+
+Демонстраційні дані (з `backend`; пароль для `demo_olena` та `demo_taras` вводиться приховано):
+
+```sh
+uv run --locked python -m app.seed
+```
+
+Оновити зображення схеми та DBML (з `backend`):
+
+```sh
+uv run --locked python -m app.export_schema
+```
 
 ## Фронтенд
 
+В окремому терміналі з кореня репозиторію:
+
 ```sh
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-Відкриється на `http://localhost:5173`.
+Відкрити http://localhost:5173.
 
-## Правила
+## Перевірки
 
-- Гілки: `feature/SCRUM-<номер>-<коротко>`.
-- Коміти починаються з ключа Jira: `SCRUM-15 Короткий опис`.
-- У `main` тільки через PR з одним апрувом і зеленим CI.
+З каталогу `backend`:
+
+```sh
+uv run --locked python -m app.check_db --test
+uv run --locked pytest -q
+```
+
+Інтеграційні перевірки на окремій БД з `TEST_DATABASE_URL`, відмінній від `DATABASE_URL`:
+
+```sh
+uv run --locked alembic -x database=test upgrade head
+uv run --locked pytest -q --database-tests
+```
