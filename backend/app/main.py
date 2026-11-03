@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth import router as auth_router
 from app.config import get_settings
 from app.exceptions import ApiError, api_error_handler, validation_error_handler
+from app.users import router as users_router
 
 settings = get_settings()
 
@@ -22,6 +23,7 @@ app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 
 app.include_router(auth_router)
+app.include_router(users_router)
 
 
 @app.get("/api/health")
