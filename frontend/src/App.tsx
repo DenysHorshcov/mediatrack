@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import HomePage from "@/pages/HomePage";
 import LoginPage from "@/pages/LoginPage";
+import ProfilePage from "@/pages/ProfilePage";
 import RegisterPage from "@/pages/RegisterPage";
 import { useAuth } from "@/stores/auth";
 
@@ -40,6 +41,7 @@ export default function App() {
         }
       />
       <Route path="/" element={<Protected><HomePage /></Protected>} />
+      <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
