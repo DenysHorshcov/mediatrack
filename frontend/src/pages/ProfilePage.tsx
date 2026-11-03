@@ -16,16 +16,16 @@ const LIST_STUBS: Array<{ status: string; label: string; description: string }> 
 ];
 
 function Avatar({ src, username }: { src: string | null; username: string }) {
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt={username}
-        className="h-20 w-20 rounded-full border border-line object-cover"
-      />
-    );
-  }
-  return (
+  const [failed, setFailed] = useState(false);
+  const showImage = src && !failed;
+  return showImage ? (
+    <img
+      src={src}
+      alt={username}
+      onError={() => setFailed(true)}
+      className="h-20 w-20 rounded-full border border-line object-cover"
+    />
+  ) : (
     <div className="flex h-20 w-20 items-center justify-center rounded-full border border-line bg-poster text-muted">
       <User size={36} strokeWidth={1.8} />
     </div>
