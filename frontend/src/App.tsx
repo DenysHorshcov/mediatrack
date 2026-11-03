@@ -5,6 +5,7 @@ import HomePage from "@/pages/HomePage";
 import LoginPage from "@/pages/LoginPage";
 import ProfilePage from "@/pages/ProfilePage";
 import RegisterPage from "@/pages/RegisterPage";
+import SearchPage from "@/pages/SearchPage";
 import { useAuth } from "@/stores/auth";
 
 function PublicOnly({ children }: { children: React.ReactNode }) {
@@ -41,6 +42,7 @@ export default function App() {
         }
       />
       <Route path="/" element={<Protected><HomePage /></Protected>} />
+      <Route path="/search" element={<Protected><SearchPage /></Protected>} />
       <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
