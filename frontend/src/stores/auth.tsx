@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { api, ApiError } from "@/lib/api";
-import type { LoginInput, RegisterInput, User } from "@/types/auth";
+import type { LoginInput, ProfileUpdate, RegisterInput, User } from "@/types/auth";
 
 type AuthState =
   | { status: "loading"; user: null }
@@ -19,6 +19,7 @@ type AuthContextValue = AuthState & {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (input: ProfileUpdate) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -54,9 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: "anonymous", user: null });
   }, []);
 
+  const updateProfile = useCallback(async (input: ProfileUpdate) => {
+    const { user } = await api.updateProfile(input);
+    setState({ status: "authenticated", user });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ ...state, login, register, logout }),
-    [state, login, register, logout],
+    () => ({ ...state, login, register, logout, updateProfile }),
+    [state, login, register, logout, updateProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
