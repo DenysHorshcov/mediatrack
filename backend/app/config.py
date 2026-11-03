@@ -32,6 +32,12 @@ class Settings(BaseSettings):
 
     frontend_origin: str = "http://localhost:5173"
 
+    tmdb_api_key: SecretStr | None = None
+    tmdb_base_url: str = "https://api.themoviedb.org/3"
+    tmdb_image_base_url: str = "https://image.tmdb.org/t/p/w342"
+    tmdb_language: str = "uk-UA"
+    tmdb_timeout_seconds: float = 8.0
+
     @field_validator("database_url", "test_database_url", mode="before")
     @classmethod
     def normalize_empty_url(cls, value: object) -> object:
