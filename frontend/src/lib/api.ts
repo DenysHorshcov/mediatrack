@@ -1,4 +1,5 @@
 import type { LoginInput, ProfileUpdate, RegisterInput, User } from "@/types/auth";
+import type { SearchItem } from "@/types/search";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -59,4 +60,8 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(input),
     }),
+  search: (query: string) =>
+    request<{ results: SearchItem[] }>(
+      `/search?q=${encodeURIComponent(query)}`,
+    ),
 };
