@@ -1,7 +1,9 @@
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const USERNAME_MIN = 3;
 export const USERNAME_MAX = 50;
+export const PROFILE_USERNAME_MAX = 30;
 export const PASSWORD_MIN = 8;
+export const AVATAR_URL_MAX = 2048;
 
 export function validateEmail(value: string): string | undefined {
   const trimmed = value.trim();
@@ -77,5 +79,48 @@ export function validateRegisterForm(input: {
   if (password) errors.password = password;
   const confirm = validatePasswordConfirm(input.password, input.passwordConfirm);
   if (confirm) errors.passwordConfirm = confirm;
+  return errors;
+}
+
+export function validateProfileNickname(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return "Введіть нікнейм";
+  if (trimmed.length < USERNAME_MIN)
+    return `Нікнейм має бути не коротшим за ${USERNAME_MIN} символи`;
+  if (trimmed.length > PROFILE_USERNAME_MAX)
+    return `Нікнейм не може бути довшим за ${PROFILE_USERNAME_MAX} символів`;
+  return undefined;
+}
+
+export function validateAvatarUrl(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > AVATAR_URL_MAX)
+    return `Посилання не може бути довшим за ${AVATAR_URL_MAX} символів`;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:")
+      return "Посилання має починатися з http або https";
+  } catch {
+    return "Некоректне посилання";
+  }
+  return undefined;
+}
+
+export type ProfileFields = {
+  username?: string;
+  avatar_url?: string;
+  form?: string;
+};
+
+export function validateProfileForm(input: {
+  username: string;
+  avatar_url: string;
+}): ProfileFields {
+  const errors: ProfileFields = {};
+  const username = validateProfileNickname(input.username);
+  if (username) errors.username = username;
+  const avatar = validateAvatarUrl(input.avatar_url);
+  if (avatar) errors.avatar_url = avatar;
   return errors;
 }

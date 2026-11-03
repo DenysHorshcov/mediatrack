@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  validateAvatarUrl,
   validateEmail,
   validateLoginForm,
   validatePassword,
   validatePasswordConfirm,
+  validateProfileForm,
+  validateProfileNickname,
   validateRegisterForm,
   validateUsername,
 } from "./validation";
@@ -128,5 +131,63 @@ describe("validateRegisterForm", () => {
         passwordConfirm: "abcdefgh",
       }),
     ).toEqual({});
+  });
+});
+
+describe("validateProfileNickname", () => {
+  it("rejects empty", () => {
+    expect(validateProfileNickname("")).toBe("Введіть нікнейм");
+    expect(validateProfileNickname("   ")).toBe("Введіть нікнейм");
+  });
+
+  it("rejects too short", () => {
+    expect(validateProfileNickname("ab")).toMatch(/коротшим/);
+  });
+
+  it("rejects too long (over 30)", () => {
+    expect(validateProfileNickname("a".repeat(31))).toMatch(/довшим/);
+  });
+
+  it("accepts 3..30", () => {
+    expect(validateProfileNickname("abc")).toBeUndefined();
+    expect(validateProfileNickname("a".repeat(30))).toBeUndefined();
+  });
+});
+
+describe("validateAvatarUrl", () => {
+  it("accepts empty (clears avatar)", () => {
+    expect(validateAvatarUrl("")).toBeUndefined();
+    expect(validateAvatarUrl("   ")).toBeUndefined();
+  });
+
+  it("rejects malformed", () => {
+    expect(validateAvatarUrl("not a url")).toBe("Некоректне посилання");
+  });
+
+  it("rejects non-http protocols", () => {
+    expect(validateAvatarUrl("ftp://example.com/a.png")).toMatch(/http/);
+  });
+
+  it("accepts http and https", () => {
+    expect(validateAvatarUrl("https://example.com/a.png")).toBeUndefined();
+    expect(validateAvatarUrl("http://example.com/a.png")).toBeUndefined();
+  });
+});
+
+describe("validateProfileForm", () => {
+  it("returns errors for invalid input", () => {
+    const result = validateProfileForm({ username: "", avatar_url: "oops" });
+    expect(result.username).toBeDefined();
+    expect(result.avatar_url).toBeDefined();
+  });
+
+  it("returns empty for valid input with avatar", () => {
+    expect(
+      validateProfileForm({ username: "demo", avatar_url: "https://example.com/a.png" }),
+    ).toEqual({});
+  });
+
+  it("returns empty for valid input with empty avatar", () => {
+    expect(validateProfileForm({ username: "demo", avatar_url: "" })).toEqual({});
   });
 });
