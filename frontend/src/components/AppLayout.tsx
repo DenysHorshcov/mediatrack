@@ -45,7 +45,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </NavLink>
 
         <nav className="flex flex-col items-center gap-2">
-          <NavItem to="/" label="Пошук" icon={<Search size={20} />} />
+          <NavItem to="/search" label="Пошук" icon={<Search size={20} />} />
           <NavItem to="/profile" label="Профіль" icon={<User size={20} />} />
         </nav>
 
