@@ -16,3 +16,8 @@ export type RegisterInput = {
   password: string;
 };
 
+export type ProfileUpdate = {
+  username?: string;
+  avatar_url?: string | null;
+};
+

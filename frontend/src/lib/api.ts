@@ -1,4 +1,4 @@
-import type { LoginInput, RegisterInput, User } from "@/types/auth";
+import type { LoginInput, ProfileUpdate, RegisterInput, User } from "@/types/auth";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -53,4 +53,10 @@ export const api = {
     }),
   logout: () => request<void>("/auth/logout", { method: "POST" }),
   me: () => request<{ user: User }>("/auth/me"),
+  getProfile: () => request<{ user: User }>("/users/me"),
+  updateProfile: (input: ProfileUpdate) =>
+    request<{ user: User }>("/users/me", {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
 };
