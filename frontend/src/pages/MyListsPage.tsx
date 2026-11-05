@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Inbox, Search } from "lucide-react";
+import { Inbox, LayoutGrid, Search } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { LibraryCard } from "@/components/LibraryCard";
 import { api, ApiError } from "@/lib/api";
@@ -11,6 +11,8 @@ import {
 import type { LibraryStatus, LibraryTitle } from "@/types/library";
 import type { SearchItemType } from "@/types/search";
 
+type StatusFilter = LibraryStatus | "all";
+
 const TYPE_TABS: Array<{ value: SearchItemType | "all"; label: string }> = [
   { value: "all", label: "Усе" },
   { value: "movie", label: "Фільми" },
@@ -18,10 +20,11 @@ const TYPE_TABS: Array<{ value: SearchItemType | "all"; label: string }> = [
   { value: "game", label: "Ігри" },
 ];
 
-function readStatus(raw: string | null): LibraryStatus {
+function readStatus(raw: string | null): StatusFilter {
+  if (raw === "all") return "all";
   return (LIBRARY_STATUSES as readonly string[]).includes(raw ?? "")
     ? (raw as LibraryStatus)
-    : "in_progress";
+    : "all";
 }
 
 function readType(raw: string | null): SearchItemType | "all" {
@@ -43,7 +46,10 @@ export default function MyListsPage() {
     setLoading(true);
     setError(null);
     api
-      .listLibrary({ status, type: type === "all" ? undefined : type })
+      .listLibrary({
+        status: status === "all" ? undefined : status,
+        type: type === "all" ? undefined : type,
+      })
       .then((response) => {
         if (!cancelled) setItems(response.items);
       })
@@ -60,9 +66,10 @@ export default function MyListsPage() {
     };
   }, [status, type]);
 
-  function setStatusTab(next: LibraryStatus) {
+  function setStatusTab(next: StatusFilter) {
     const nextParams = new URLSearchParams(params);
-    nextParams.set("status", next);
+    if (next === "all") nextParams.delete("status");
+    else nextParams.set("status", next);
     setParams(nextParams, { replace: true });
   }
 
@@ -110,25 +117,37 @@ function StatusTabs({
   value,
   onChange,
 }: {
-  value: LibraryStatus;
-  onChange: (next: LibraryStatus) => void;
+  value: StatusFilter;
+  onChange: (next: StatusFilter) => void;
 }) {
+  const tabs: Array<{
+    value: StatusFilter;
+    label: string;
+    Icon: ReturnType<typeof statusIcon> | typeof LayoutGrid;
+  }> = [
+    { value: "all", label: "Усі", Icon: LayoutGrid },
+    ...LIBRARY_STATUSES.map((status) => ({
+      value: status as StatusFilter,
+      label: tabLabel(status),
+      Icon: statusIcon(status),
+    })),
+  ];
+
   return (
     <div
       role="tablist"
       aria-label="Статус"
       className="inline-flex flex-wrap gap-1 rounded-field border border-line bg-panel p-1"
     >
-      {LIBRARY_STATUSES.map((status) => {
-        const Icon = statusIcon(status);
-        const isActive = status === value;
+      {tabs.map(({ value: tabValue, label, Icon }) => {
+        const isActive = tabValue === value;
         return (
           <button
-            key={status}
+            key={tabValue}
             type="button"
             role="tab"
             aria-selected={isActive}
-            onClick={() => onChange(status)}
+            onClick={() => onChange(tabValue)}
             className={[
               "inline-flex h-9 items-center gap-2 rounded-field px-3 text-sm font-medium transition",
               isActive
@@ -137,7 +156,7 @@ function StatusTabs({
             ].join(" ")}
           >
             <Icon size={14} />
-            {tabLabel(status)}
+            {label}
           </button>
         );
       })}
@@ -162,7 +181,7 @@ function TypeTabs({
             type="button"
             onClick={() => onChange(tab.value)}
             className={[
-              "h-8 rounded-full border px-3 text-xs font-medium transition",
+              "h-9 rounded-full border px-4 text-sm font-medium transition",
               isActive
                 ? "border-accent bg-accent-soft text-accent-dark"
                 : "border-line bg-bg text-muted hover:border-accent hover:text-accent-dark",

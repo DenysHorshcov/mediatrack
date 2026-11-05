@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { X } from "lucide-react";
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { LIBRARY_STATUSES, statusIcon, statusLabel } from "@/lib/library";
@@ -52,7 +52,7 @@ export function StatusSelector({ titleId, mediaType, current, onChange }: Props)
         </p>
       </div>
 
-      <ul className="flex flex-wrap gap-2" role="radiogroup" aria-label="Статус">
+      <ul className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Статус">
         {LIBRARY_STATUSES.map((status) => {
           const Icon = statusIcon(status);
           const isActive = status === current;
@@ -79,19 +79,21 @@ export function StatusSelector({ titleId, mediaType, current, onChange }: Props)
             </li>
           );
         })}
+        {current !== null && (
+          <li>
+            <button
+              type="button"
+              onClick={() => void removeFromList()}
+              disabled={pending !== null}
+              aria-label="Прибрати зі списку"
+              title="Прибрати зі списку"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-field border border-line bg-bg text-muted transition hover:border-error hover:text-error disabled:opacity-60"
+            >
+              <X size={16} />
+            </button>
+          </li>
+        )}
       </ul>
-
-      {current !== null && (
-        <button
-          type="button"
-          onClick={() => void removeFromList()}
-          disabled={pending !== null}
-          className="inline-flex items-center gap-1.5 text-sm text-error transition hover:text-error/80 disabled:opacity-60"
-        >
-          <Trash2 size={14} />
-          {pending === "remove" ? "Прибираємо…" : "Прибрати зі списку"}
-        </button>
-      )}
 
       {error && (
         <p role="alert" className="rounded-field bg-error-bg px-3 py-2 text-sm text-error">

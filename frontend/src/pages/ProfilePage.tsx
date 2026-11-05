@@ -155,7 +155,7 @@ export default function ProfilePage() {
           {LIST_STUBS.map((item) => (
             <li key={item.status}>
               <Link
-                to={`/lists/${item.status}`}
+                to={`/lists?status=${item.status}`}
                 className="block rounded-field border border-line bg-bg px-4 py-3 transition hover:border-accent hover:bg-row"
               >
                 <p className="font-medium text-text">{item.label}</p>

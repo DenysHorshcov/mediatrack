@@ -166,7 +166,6 @@ function TitleView({
 }) {
   const meta = TYPE_META[title.media_type];
   const TypeIcon = meta.icon;
-  const dataSource = title.provider === "tmdb" ? "TMDB" : "RAWG";
 
   return (
     <article className="grid gap-8 md:grid-cols-[minmax(0,260px)_1fr]">
@@ -262,8 +261,6 @@ function TitleView({
             onLastEpisode={onMarkCompleted}
           />
         )}
-
-        <p className="text-xs text-muted">Дані: {dataSource}</p>
       </div>
     </article>
   );
@@ -291,7 +288,7 @@ function NotFound() {
     <div className="flex flex-col items-center gap-3 rounded-field border border-dashed border-line bg-panel px-6 py-12 text-center">
       <p className="text-lg font-semibold text-text">Тайтл не знайдено</p>
       <p className="max-w-md text-sm text-muted">
-        Можливо, посилання некоректне або цього тайтлу вже немає у TMDB чи RAWG.
+        Можливо, посилання некоректне або цього тайтлу більше немає у каталозі.
       </p>
       <Link to="/search" className="text-sm font-medium text-accent hover:text-accent-dark">
         Перейти до пошуку

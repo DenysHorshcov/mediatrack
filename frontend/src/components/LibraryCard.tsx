@@ -40,9 +40,14 @@ export function LibraryCard({ item }: { item: LibraryTitle }) {
         )}
       </div>
       <div className="flex flex-col gap-1 px-3 py-2.5">
-        <p className="line-clamp-2 text-sm font-medium text-text group-hover:text-accent-dark">
-          {item.title}
-        </p>
+        <div className="h-[2.5rem] overflow-hidden">
+          <p
+            title={item.title}
+            className="line-clamp-2 text-sm font-medium leading-tight text-text group-hover:text-accent-dark"
+          >
+            {item.title}
+          </p>
+        </div>
         <div className="flex items-center gap-2 text-xs text-muted">
           <span>{item.year ?? "—"}</span>
           <span aria-hidden>·</span>
