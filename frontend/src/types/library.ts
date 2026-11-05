@@ -18,4 +18,6 @@ export type LibraryTitle = {
   year: number | null;
   status: LibraryStatus;
   rating: number | null;
+  current_season: number | null;
+  current_episode: number | null;
 };

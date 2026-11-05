@@ -1,6 +1,7 @@
 import type { LoginInput, ProfileUpdate, RegisterInput, User } from "@/types/auth";
 import type { LibraryStatus, LibraryTitle } from "@/types/library";
 import type { SearchFilter, SearchItem, SearchItemType } from "@/types/search";
+import type { Season } from "@/types/season";
 import type { Title, TitleProvider } from "@/types/title";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -83,6 +84,18 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ rating }),
     }),
+  setLibraryProgress: (
+    titleId: string,
+    progress: { season: number | null; episode: number | null },
+  ) =>
+    request<{ entry: LibraryTitle }>(`/me/titles/${encodeURIComponent(titleId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(progress),
+    }),
+  getSeasons: (provider: TitleProvider, mediaType: string, externalId: string) =>
+    request<{ seasons: Season[] }>(
+      `/titles/${encodeURIComponent(provider)}/${encodeURIComponent(mediaType)}/${encodeURIComponent(externalId)}/seasons`,
+    ),
   removeFromLibrary: (titleId: string) =>
     request<void>(`/me/titles/${encodeURIComponent(titleId)}`, { method: "DELETE" }),
   listLibrary: (filters: { status?: LibraryStatus; type?: SearchItemType } = {}) => {

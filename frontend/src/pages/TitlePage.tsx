@@ -9,6 +9,7 @@ import {
   Tv,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { ProgressSelector } from "@/components/ProgressSelector";
 import { RatingSelector } from "@/components/RatingSelector";
 import { StatusSelector } from "@/components/StatusSelector";
 import { api, ApiError } from "@/lib/api";
@@ -43,6 +44,10 @@ export default function TitlePage() {
 
   const [libraryStatus, setLibraryStatus] = useState<LibraryStatus | null>(null);
   const [libraryRating, setLibraryRating] = useState<number | null>(null);
+  const [libraryProgress, setLibraryProgress] = useState<{
+    season: number | null;
+    episode: number | null;
+  }>({ season: null, episode: null });
 
   useEffect(() => {
     if (
@@ -59,6 +64,7 @@ export default function TitlePage() {
     setState({ kind: "loading" });
     setLibraryStatus(null);
     setLibraryRating(null);
+    setLibraryProgress({ season: null, episode: null });
     api
       .getTitle(provider, mediaType, externalId)
       .then((response) => {
@@ -70,6 +76,10 @@ export default function TitlePage() {
             if (cancelled) return;
             setLibraryStatus(entry.entry.status);
             setLibraryRating(entry.entry.rating);
+            setLibraryProgress({
+              season: entry.entry.current_season,
+              episode: entry.entry.current_episode,
+            });
           })
           .catch((err: unknown) => {
             if (err instanceof ApiError && err.status === 404) return;
@@ -118,6 +128,17 @@ export default function TitlePage() {
               setLibraryStatus("completed");
             }
           }}
+          libraryProgress={libraryProgress}
+          onLibraryProgressChange={(season, episode) => {
+            setLibraryProgress({ season, episode });
+            if (season !== null && libraryStatus === null) {
+              setLibraryStatus("in_progress");
+            }
+          }}
+          onMarkCompleted={async () => {
+            await api.setLibraryStatus(state.title.id, "completed");
+            setLibraryStatus("completed");
+          }}
         />
       )}
     </div>
@@ -130,12 +151,18 @@ function TitleView({
   onLibraryStatusChange,
   libraryRating,
   onLibraryRatingChange,
+  libraryProgress,
+  onLibraryProgressChange,
+  onMarkCompleted,
 }: {
   title: Title;
   libraryStatus: LibraryStatus | null;
   onLibraryStatusChange: (next: LibraryStatus | null) => void;
   libraryRating: number | null;
   onLibraryRatingChange: (next: number | null) => void;
+  libraryProgress: { season: number | null; episode: number | null };
+  onLibraryProgressChange: (season: number | null, episode: number | null) => void;
+  onMarkCompleted: () => Promise<void>;
 }) {
   const meta = TYPE_META[title.media_type];
   const TypeIcon = meta.icon;
@@ -223,6 +250,18 @@ function TitleView({
           rating={libraryRating}
           onChange={onLibraryRatingChange}
         />
+
+        {title.media_type === "series" && (
+          <ProgressSelector
+            titleId={title.id}
+            provider={title.provider}
+            externalId={title.external_id}
+            currentSeason={libraryProgress.season}
+            currentEpisode={libraryProgress.episode}
+            onChange={onLibraryProgressChange}
+            onLastEpisode={onMarkCompleted}
+          />
+        )}
 
         <p className="text-xs text-muted">Дані: {dataSource}</p>
       </div>
