@@ -35,16 +35,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-bg">
-      <aside className="flex w-[72px] shrink-0 flex-col items-center justify-between border-r border-line bg-sidebar py-5">
+      <aside className="sticky top-0 flex h-screen w-[72px] shrink-0 flex-col items-center border-r border-line bg-sidebar py-5">
         <NavLink
-          to="/"
+          to="/search"
           aria-label="MediaTrack"
           className="flex h-11 w-11 items-center justify-center text-accent-dark"
         >
           <Logo size={22} />
         </NavLink>
 
-        <nav className="flex flex-col items-center gap-2">
+        <nav className="my-auto flex flex-col items-center gap-2">
           <NavItem to="/search" label="Пошук" icon={<Search size={20} />} />
           <NavItem to="/lists" label="Мої списки" icon={<Library size={20} />} />
           <NavItem to="/profile" label="Профіль" icon={<User size={20} />} />
