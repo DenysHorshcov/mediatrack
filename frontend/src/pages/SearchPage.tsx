@@ -3,14 +3,21 @@ import { Search, SearchX } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { Input } from "@/components/Input";
 import { SearchCard } from "@/components/SearchCard";
+import { SearchFilterTabs } from "@/components/SearchFilterTabs";
 import { api, ApiError } from "@/lib/api";
-import type { SearchItem } from "@/types/search";
+import type { SearchFilter, SearchItem } from "@/types/search";
 
 const DEBOUNCE_MS = 300;
+const VALID_FILTERS: SearchFilter[] = ["all", "movie", "series", "game"];
+
+function readFilter(raw: string | null): SearchFilter {
+  return VALID_FILTERS.includes(raw as SearchFilter) ? (raw as SearchFilter) : "all";
+}
 
 export default function SearchPage() {
   const [params, setParams] = useSearchParams();
   const urlQuery = (params.get("q") ?? "").trim();
+  const filter = readFilter(params.get("type"));
 
   const [input, setInput] = useState(params.get("q") ?? "");
   const [results, setResults] = useState<SearchItem[] | null>(null);
@@ -22,12 +29,16 @@ export default function SearchPage() {
     const trimmed = input.trim();
     const t = window.setTimeout(() => {
       if (trimmed === urlQuery) return;
-      setParams(trimmed ? { q: trimmed } : {}, { replace: true });
+      const next = new URLSearchParams(params);
+      if (trimmed) next.set("q", trimmed);
+      else next.delete("q");
+      setParams(next, { replace: true });
     }, DEBOUNCE_MS);
     return () => window.clearTimeout(t);
-  }, [input, urlQuery, setParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input]);
 
-  // Fetch when URL query changes
+  // Fetch when URL query or filter changes
   useEffect(() => {
     if (!urlQuery) {
       setResults(null);
@@ -38,7 +49,7 @@ export default function SearchPage() {
     setLoading(true);
     setError(null);
     api
-      .search(urlQuery)
+      .search(urlQuery, filter)
       .then((response) => {
         if (!cancelled) setResults(response.results);
       })
@@ -53,14 +64,21 @@ export default function SearchPage() {
     return () => {
       cancelled = true;
     };
-  }, [urlQuery]);
+  }, [urlQuery, filter]);
+
+  function handleFilterChange(next: SearchFilter) {
+    const nextParams = new URLSearchParams(params);
+    if (next === "all") nextParams.delete("type");
+    else nextParams.set("type", next);
+    setParams(nextParams, { replace: true });
+  }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-8 py-10">
+    <div className="mx-auto max-w-5xl space-y-6 px-8 py-10">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold text-text">Пошук</h1>
         <p className="text-sm text-muted">
-          Шукайте фільми й серіали за назвою українською або англійською.
+          Шукайте фільми, серіали та ігри. Назви українською беремо з TMDB, ігри — з RAWG (англійською).
         </p>
       </div>
 
@@ -74,6 +92,8 @@ export default function SearchPage() {
         value={input}
         onChange={(event) => setInput(event.target.value)}
       />
+
+      <SearchFilterTabs value={filter} onChange={handleFilterChange} />
 
       <SearchResults
         query={urlQuery}
@@ -98,7 +118,7 @@ function SearchResults({ query, loading, error, results }: ResultsProps) {
       <EmptyState
         icon={<Search size={32} strokeWidth={1.6} />}
         title="Введіть запит, щоб почати"
-        description="Фільми й серіали беремо з TMDB українською."
+        description="Шукаємо у TMDB (фільми, серіали) і RAWG (ігри). Фільтр згори — щоб звузити."
       />
     );
   }
@@ -126,7 +146,7 @@ function SearchResults({ query, loading, error, results }: ResultsProps) {
       <EmptyState
         icon={<SearchX size={32} strokeWidth={1.6} />}
         title="Нічого не знайдено"
-        description={`За запитом «${query}» результатів немає. Спробуйте інакше.`}
+        description={`За запитом «${query}» результатів немає. Спробуйте інакше або поміняйте фільтр.`}
       />
     );
   }
