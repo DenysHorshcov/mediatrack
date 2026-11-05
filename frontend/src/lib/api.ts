@@ -1,5 +1,5 @@
 import type { LoginInput, ProfileUpdate, RegisterInput, User } from "@/types/auth";
-import type { SearchItem } from "@/types/search";
+import type { SearchFilter, SearchItem } from "@/types/search";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -60,8 +60,9 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(input),
     }),
-  search: (query: string) =>
-    request<{ results: SearchItem[] }>(
-      `/search?q=${encodeURIComponent(query)}`,
-    ),
+  search: (query: string, filter: SearchFilter = "all") => {
+    const params = new URLSearchParams({ q: query });
+    if (filter !== "all") params.set("type", filter);
+    return request<{ results: SearchItem[] }>(`/search?${params.toString()}`);
+  },
 };
