@@ -78,7 +78,7 @@ export default function SearchPage() {
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold text-text">Пошук</h1>
         <p className="text-sm text-muted">
-          Шукайте фільми, серіали та ігри. Назви українською беремо з TMDB, ігри — з RAWG (англійською).
+          Шукайте фільми, серіали та ігри. Фільми й серіали — українською, ігри — англійською.
         </p>
       </div>
 
@@ -118,7 +118,7 @@ function SearchResults({ query, loading, error, results }: ResultsProps) {
       <EmptyState
         icon={<Search size={32} strokeWidth={1.6} />}
         title="Введіть запит, щоб почати"
-        description="Шукаємо у TMDB (фільми, серіали) і RAWG (ігри). Фільтр згори — щоб звузити."
+        description="Введіть назву вгорі, фільтр — щоб звузити до фільмів, серіалів або ігор."
       />
     );
   }

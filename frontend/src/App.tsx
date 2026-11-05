@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import HomePage from "@/pages/HomePage";
 import LoginPage from "@/pages/LoginPage";
 import MyListsPage from "@/pages/MyListsPage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -12,7 +11,7 @@ import { useAuth } from "@/stores/auth";
 
 function PublicOnly({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
-  if (auth.status === "authenticated") return <Navigate to="/" replace />;
+  if (auth.status === "authenticated") return <Navigate to="/search" replace />;
   return <>{children}</>;
 }
 
@@ -43,7 +42,7 @@ export default function App() {
           </PublicOnly>
         }
       />
-      <Route path="/" element={<Protected><HomePage /></Protected>} />
+      <Route path="/" element={<Navigate to="/search" replace />} />
       <Route path="/search" element={<Protected><SearchPage /></Protected>} />
       <Route path="/lists" element={<Protected><MyListsPage /></Protected>} />
       <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
@@ -51,7 +50,7 @@ export default function App() {
         path="/title/:provider/:mediaType/:externalId"
         element={<Protected><TitlePage /></Protected>}
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/search" replace />} />
     </Routes>
   );
 }

@@ -38,10 +38,13 @@ class Settings(BaseSettings):
     tmdb_language: str = "uk-UA"
     tmdb_timeout_seconds: float = 8.0
 
+    # RAWG is kept as the DB provider label; the actual service is the Steam
+    # storefront API (no key required).
     rawg_api_key: SecretStr | None = None
-    rawg_base_url: str = "https://api.rawg.io/api"
+    rawg_base_url: str = "https://store.steampowered.com/api"
     rawg_timeout_seconds: float = 8.0
     rawg_page_size: int = 20
+    rawg_user_agent: str = "MediaTrack/0.1 (student project)"
 
     @field_validator("database_url", "test_database_url", mode="before")
     @classmethod

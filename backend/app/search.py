@@ -40,7 +40,7 @@ async def _safe_rawg(q: str, settings: Settings) -> tuple[list[tmdb.SearchItem],
     try:
         return await rawg.search_games(q, settings), None
     except rawg.RAWGError as exc:
-        logger.warning("RAWG search failed: %s", exc)
+        logger.warning("Games search failed: %s", exc)
         return [], exc
 
 
