@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { LogOut, Search, User } from "lucide-react";
+import { Library, LogOut, Search, User } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/stores/auth";
@@ -46,6 +46,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
         <nav className="flex flex-col items-center gap-2">
           <NavItem to="/search" label="Пошук" icon={<Search size={20} />} />
+          <NavItem to="/lists" label="Мої списки" icon={<Library size={20} />} />
           <NavItem to="/profile" label="Профіль" icon={<User size={20} />} />
         </nav>
 
