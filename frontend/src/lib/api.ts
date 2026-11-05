@@ -1,5 +1,6 @@
 import type { LoginInput, ProfileUpdate, RegisterInput, User } from "@/types/auth";
 import type { SearchFilter, SearchItem } from "@/types/search";
+import type { Title, TitleProvider } from "@/types/title";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -65,4 +66,8 @@ export const api = {
     if (filter !== "all") params.set("type", filter);
     return request<{ results: SearchItem[] }>(`/search?${params.toString()}`);
   },
+  getTitle: (provider: TitleProvider, mediaType: string, externalId: string) =>
+    request<{ title: Title }>(
+      `/titles/${encodeURIComponent(provider)}/${encodeURIComponent(mediaType)}/${encodeURIComponent(externalId)}`,
+    ),
 };
