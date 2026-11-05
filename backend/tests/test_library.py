@@ -263,3 +263,172 @@ def test_list_returns_rating(client: TestClient, db: Connection) -> None:
     items = client.get("/api/me/titles").json()["items"]
     assert items[0]["rating"] == 6
     assert items[0]["status"] == "completed"
+
+
+def test_patch_rejects_empty_body(client: TestClient, db: Connection) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    response = client.patch(f"/api/me/titles/{title_id}", json={})
+    assert response.status_code == 422
+
+
+def test_patch_rejects_half_progress(client: TestClient, db: Connection) -> None:
+    _register(client)
+    title_id = _title_in_connection(db, media_type="series", external_id="1396")
+    response = client.patch(f"/api/me/titles/{title_id}", json={"season": 1})
+    assert response.status_code == 422
+
+
+def test_patch_rejects_progress_on_movie(
+    client: TestClient, db: Connection, monkeypatch
+) -> None:
+    async def fake(external_id: str, settings):
+        from app import tmdb
+        return [tmdb.SeasonSummary(season_number=1, episode_count=10)]
+
+    from app import tmdb as tmdb_mod
+    monkeypatch.setattr(tmdb_mod, "fetch_tv_seasons", fake)
+    _register(client)
+    title_id = _title_in_connection(db, media_type="movie")
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"season": 1, "episode": 1}
+    )
+    assert response.status_code == 400
+    assert response.json()["fields"]["season"]
+
+
+def test_patch_rejects_unknown_season(
+    client: TestClient, db: Connection, monkeypatch
+) -> None:
+    from app import tmdb as tmdb_mod
+
+    async def fake(external_id: str, settings):
+        return [tmdb_mod.SeasonSummary(season_number=1, episode_count=10)]
+
+    monkeypatch.setattr(tmdb_mod, "fetch_tv_seasons", fake)
+    _register(client)
+    title_id = _title_in_connection(
+        db, media_type="series", external_id="1396", title="BB"
+    )
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"season": 99, "episode": 1}
+    )
+    assert response.status_code == 400
+    assert response.json()["fields"]["season"]
+
+
+def test_patch_rejects_episode_out_of_range(
+    client: TestClient, db: Connection, monkeypatch
+) -> None:
+    from app import tmdb as tmdb_mod
+
+    async def fake(external_id: str, settings):
+        return [tmdb_mod.SeasonSummary(season_number=1, episode_count=10)]
+
+    monkeypatch.setattr(tmdb_mod, "fetch_tv_seasons", fake)
+    _register(client)
+    title_id = _title_in_connection(
+        db, media_type="series", external_id="1396", title="BB"
+    )
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"season": 1, "episode": 99}
+    )
+    assert response.status_code == 400
+    assert response.json()["fields"]["episode"]
+
+
+def test_patch_saves_progress_and_creates_entry(
+    client: TestClient, db: Connection, monkeypatch
+) -> None:
+    from app import tmdb as tmdb_mod
+
+    async def fake(external_id: str, settings):
+        return [tmdb_mod.SeasonSummary(season_number=1, episode_count=10)]
+
+    monkeypatch.setattr(tmdb_mod, "fetch_tv_seasons", fake)
+    _register(client)
+    title_id = _title_in_connection(
+        db, media_type="series", external_id="1396", title="BB"
+    )
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"season": 1, "episode": 5}
+    )
+    assert response.status_code == 200
+    body = response.json()["entry"]
+    assert body["current_season"] == 1
+    assert body["current_episode"] == 5
+    assert body["status"] == "in_progress"
+
+
+def test_patch_updates_progress_without_changing_status(
+    client: TestClient, db: Connection, monkeypatch
+) -> None:
+    from app import tmdb as tmdb_mod
+
+    async def fake(external_id: str, settings):
+        return [tmdb_mod.SeasonSummary(season_number=1, episode_count=10)]
+
+    monkeypatch.setattr(tmdb_mod, "fetch_tv_seasons", fake)
+    _register(client)
+    title_id = _title_in_connection(
+        db, media_type="series", external_id="1396", title="BB"
+    )
+    client.put(f"/api/me/titles/{title_id}", json={"status": "on_hold"})
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"season": 1, "episode": 3}
+    )
+    assert response.status_code == 200
+    body = response.json()["entry"]
+    assert body["status"] == "on_hold"
+    assert body["current_episode"] == 3
+
+
+def test_patch_clears_progress(
+    client: TestClient, db: Connection, monkeypatch
+) -> None:
+    from app import tmdb as tmdb_mod
+
+    async def fake(external_id: str, settings):
+        return [tmdb_mod.SeasonSummary(season_number=1, episode_count=10)]
+
+    monkeypatch.setattr(tmdb_mod, "fetch_tv_seasons", fake)
+    _register(client)
+    title_id = _title_in_connection(
+        db, media_type="series", external_id="1396", title="BB"
+    )
+    client.patch(f"/api/me/titles/{title_id}", json={"season": 1, "episode": 5})
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"season": None, "episode": None}
+    )
+    assert response.status_code == 200
+    body = response.json()["entry"]
+    assert body["current_season"] is None
+    assert body["current_episode"] is None
+
+
+def test_seasons_endpoint_requires_series(client: TestClient, monkeypatch) -> None:
+    _register(client)
+    response = client.get("/api/titles/tmdb/movie/603/seasons")
+    assert response.status_code == 404
+
+
+def test_seasons_endpoint_returns_list(
+    client: TestClient, monkeypatch
+) -> None:
+    from app import tmdb as tmdb_mod
+
+    async def fake(external_id: str, settings):
+        assert external_id == "1396"
+        return [
+            tmdb_mod.SeasonSummary(season_number=1, name="Сезон 1", episode_count=7),
+            tmdb_mod.SeasonSummary(season_number=2, name="Сезон 2", episode_count=13),
+        ]
+
+    monkeypatch.setattr(tmdb_mod, "fetch_tv_seasons", fake)
+    _register(client)
+    response = client.get("/api/titles/tmdb/series/1396/seasons")
+    assert response.status_code == 200
+    body = response.json()["seasons"]
+    assert body[0]["season_number"] == 1
+    assert body[0]["episode_count"] == 7
+    assert body[1]["episode_count"] == 13

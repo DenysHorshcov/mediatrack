@@ -41,6 +41,17 @@ class TitleResponse(BaseModel):
     title: TitleOut
 
 
+class SeasonOut(BaseModel):
+    season_number: int
+    name: str | None = None
+    air_date: str | None = None
+    episode_count: int
+
+
+class SeasonsResponse(BaseModel):
+    seasons: list[SeasonOut]
+
+
 def _validate_provider_type(provider: str, media_type: str) -> None:
     if provider == "tmdb" and media_type not in ("movie", "series"):
         raise ApiError(404, "Такого тайтлу немає")
@@ -137,3 +148,33 @@ async def get_title(
     db.commit()
     db.refresh(row)
     return TitleResponse(title=_to_out(row))
+
+
+@router.get(
+    "/{provider}/{media_type}/{external_id}/seasons",
+    response_model=SeasonsResponse,
+)
+async def get_seasons(
+    provider: Annotated[str, Path(min_length=1, max_length=10)],
+    media_type: Annotated[str, Path(min_length=1, max_length=10)],
+    external_id: Annotated[str, Path(min_length=1, max_length=64)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> SeasonsResponse:
+    if provider != "tmdb" or media_type != "series":
+        raise ApiError(404, "Сезони доступні лише для серіалів TMDB")
+    try:
+        seasons = await tmdb.fetch_tv_seasons(external_id, settings)
+    except tmdb.TMDBError as exc:
+        raise ApiError(404, "Серіал не знайдено") from exc
+    return SeasonsResponse(
+        seasons=[
+            SeasonOut(
+                season_number=s.season_number,
+                name=s.name,
+                air_date=s.air_date,
+                episode_count=s.episode_count,
+            )
+            for s in seasons
+        ]
+    )

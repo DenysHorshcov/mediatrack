@@ -2,10 +2,11 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app import tmdb
 from app.config import Settings, get_settings
 from app.database import get_db_session
 from app.deps import get_current_user
@@ -28,7 +29,18 @@ class StatusUpdate(BaseModel):
 class EntryPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    rating: int | None = Field(..., ge=1, le=10)
+    rating: int | None = Field(default=None, ge=1, le=10)
+    season: int | None = Field(default=None, ge=1)
+    episode: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def _at_least_one_field(self) -> "EntryPatch":
+        provided = self.model_fields_set
+        if not provided:
+            raise ValueError("Передайте rating або season/episode")
+        if ("season" in provided) != ("episode" in provided):
+            raise ValueError("season і episode передаються разом")
+        return self
 
 
 class LibraryTitleOut(BaseModel):
@@ -43,6 +55,8 @@ class LibraryTitleOut(BaseModel):
     year: int | None = None
     status: LibraryStatus
     rating: int | None = None
+    current_season: int | None = None
+    current_episode: int | None = None
 
 
 class EntryResponse(BaseModel):
@@ -65,6 +79,8 @@ def _to_out(entry: LibraryEntry, title: MediaTitle) -> LibraryTitleOut:
         year=year,
         status=entry.status,  # type: ignore[arg-type]
         rating=entry.rating,
+        current_season=entry.current_season,
+        current_episode=entry.current_episode,
     )
 
 
@@ -145,16 +161,53 @@ def put_entry(
     return EntryResponse(entry=_to_out(entry, title))
 
 
+async def _validate_progress(
+    title: MediaTitle, season: int, episode: int, settings: Settings
+) -> None:
+    if title.media_type != "series":
+        raise ApiError(
+            status_code=400,
+            detail="Прогрес серій доступний лише для серіалів",
+            fields={"season": "Прогрес доступний лише для серіалів"},
+        )
+    try:
+        seasons = await tmdb.fetch_tv_seasons(title.external_id, settings)
+    except tmdb.TMDBError as exc:
+        raise ApiError(status_code=503, detail="Не вдалося звіритися з TMDB") from exc
+
+    match = next((s for s in seasons if s.season_number == season), None)
+    if match is None:
+        raise ApiError(
+            status_code=400,
+            detail="Такого сезону немає",
+            fields={"season": "Такого сезону немає"},
+        )
+    if episode > match.episode_count:
+        raise ApiError(
+            status_code=400,
+            detail="Такого епізоду немає",
+            fields={"episode": f"У сезоні лише {match.episode_count} епізодів"},
+        )
+
+
 @router.patch("/{title_id}", response_model=EntryResponse)
-def patch_entry(
+async def patch_entry(
     title_id: UUID,
     payload: EntryPatch,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> EntryResponse:
     title = db.get(MediaTitle, title_id)
     if title is None:
         raise ApiError(status_code=404, detail="Тайтл не знайдено")
+
+    provided = payload.model_fields_set
+    sets_rating = "rating" in provided
+    sets_progress = "season" in provided and "episode" in provided
+
+    if sets_progress and payload.season is not None and payload.episode is not None:
+        await _validate_progress(title, payload.season, payload.episode, settings)
 
     entry = db.execute(
         select(LibraryEntry).where(
@@ -164,17 +217,32 @@ def patch_entry(
     ).scalar_one_or_none()
 
     if entry is None:
-        if payload.rating is None:
+        is_clear_only = (
+            (sets_rating and payload.rating is None)
+            or (sets_progress and payload.season is None and payload.episode is None)
+        ) and not (
+            (sets_rating and payload.rating is not None)
+            or (sets_progress and payload.season is not None)
+        )
+        if is_clear_only:
             raise ApiError(status_code=404, detail="Тайтлу немає у ваших списках")
         entry = LibraryEntry(
             user_id=user.id,
             title_id=title_id,
-            status="completed",
-            rating=payload.rating,
+            status="completed" if sets_rating and payload.rating is not None else "in_progress",
         )
+        if sets_rating:
+            entry.rating = payload.rating
+        if sets_progress:
+            entry.current_season = payload.season
+            entry.current_episode = payload.episode
         db.add(entry)
     else:
-        entry.rating = payload.rating
+        if sets_rating:
+            entry.rating = payload.rating
+        if sets_progress:
+            entry.current_season = payload.season
+            entry.current_episode = payload.episode
 
     db.commit()
     db.refresh(entry)

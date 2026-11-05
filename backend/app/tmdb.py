@@ -137,6 +137,56 @@ def _map_details(
     )
 
 
+class SeasonSummary(BaseModel):
+    season_number: int
+    name: str | None = None
+    air_date: str | None = None
+    episode_count: int
+
+
+async def fetch_tv_seasons(
+    external_id: str, settings: Settings
+) -> list[SeasonSummary]:
+    if settings.tmdb_api_key is None:
+        raise TMDBError("TMDB_API_KEY is not configured")
+    url = f"{settings.tmdb_base_url}/tv/{external_id}"
+    try:
+        async with httpx.AsyncClient(timeout=settings.tmdb_timeout_seconds) as client:
+            response = await client.get(
+                url,
+                params={
+                    "api_key": settings.tmdb_api_key.get_secret_value(),
+                    "language": "uk-UA",
+                },
+            )
+    except httpx.HTTPError as exc:
+        raise TMDBError("TMDB request failed") from exc
+
+    if response.status_code == 404:
+        raise TMDBError("Series not found")
+    if response.status_code != 200:
+        raise TMDBError(f"TMDB status {response.status_code}")
+
+    seasons: list[SeasonSummary] = []
+    for raw in response.json().get("seasons", []):
+        number = raw.get("season_number")
+        episodes = raw.get("episode_count")
+        if number is None or episodes is None:
+            continue
+        if number < 1 or episodes < 1:
+            continue
+        seasons.append(
+            SeasonSummary(
+                season_number=number,
+                name=raw.get("name") or None,
+                air_date=raw.get("air_date") or None,
+                episode_count=episodes,
+            )
+        )
+    seasons.sort(key=lambda s: s.season_number)
+    return seasons
+
+
 async def fetch_title_details(
     media_type: str, external_id: str, settings: Settings
 ) -> TitleDetails:
