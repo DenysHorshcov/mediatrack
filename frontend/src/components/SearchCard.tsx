@@ -1,4 +1,5 @@
 import { Film, Gamepad2, Image as ImageIcon, Tv } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { SearchItem, SearchItemType } from "@/types/search";
 
@@ -20,17 +21,20 @@ function TypeBadge({ type }: { type: SearchItemType }) {
 
 export function SearchCard({ item }: { item: SearchItem }) {
   const { provider } = TYPE_META[item.type];
+  const [posterFailed, setPosterFailed] = useState(false);
+  const showPoster = item.poster && !posterFailed;
   return (
     <Link
       to={`/title/${provider}/${item.type}/${item.id}`}
       className="group flex flex-col rounded-field border border-line bg-bg transition hover:border-accent hover:shadow-sm"
     >
       <div className="aspect-[2/3] overflow-hidden rounded-t-field bg-poster">
-        {item.poster ? (
+        {showPoster ? (
           <img
-            src={item.poster}
+            src={item.poster ?? undefined}
             alt={item.title}
             loading="lazy"
+            onError={() => setPosterFailed(true)}
             className="h-full w-full object-cover transition group-hover:scale-[1.02]"
           />
         ) : (
@@ -40,12 +44,21 @@ export function SearchCard({ item }: { item: SearchItem }) {
         )}
       </div>
       <div className="flex flex-col gap-1 px-3 py-2.5">
-        <p className="line-clamp-2 text-sm font-medium text-text group-hover:text-accent-dark">
-          {item.title}
-        </p>
+        <div className="h-[2.5rem] overflow-hidden">
+          <p
+            title={item.title}
+            className="line-clamp-2 text-sm font-medium leading-tight text-text group-hover:text-accent-dark"
+          >
+            {item.title}
+          </p>
+        </div>
         <div className="flex items-center gap-2 text-xs text-muted">
-          <span>{item.year ?? "—"}</span>
-          <span aria-hidden>·</span>
+          {item.year !== null && item.year !== undefined && (
+            <>
+              <span>{item.year}</span>
+              <span aria-hidden>·</span>
+            </>
+          )}
           <TypeBadge type={item.type} />
         </div>
       </div>
