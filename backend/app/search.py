@@ -1,19 +1,47 @@
+import asyncio
+import logging
+from enum import Enum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from app import tmdb
+from app import rawg, tmdb
 from app.config import Settings, get_settings
 from app.deps import get_current_user
 from app.exceptions import ApiError
 from app.models import User
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/search", tags=["search"])
+
+
+class SearchType(str, Enum):
+    all = "all"
+    movie = "movie"
+    series = "series"
+    game = "game"
 
 
 class SearchResponse(BaseModel):
     results: list[tmdb.SearchItem]
+
+
+async def _safe_tmdb(q: str, settings: Settings) -> tuple[list[tmdb.SearchItem], Exception | None]:
+    try:
+        return await tmdb.search_titles(q, settings), None
+    except tmdb.TMDBError as exc:
+        logger.warning("TMDB search failed: %s", exc)
+        return [], exc
+
+
+async def _safe_rawg(q: str, settings: Settings) -> tuple[list[tmdb.SearchItem], Exception | None]:
+    try:
+        return await rawg.search_games(q, settings), None
+    except rawg.RAWGError as exc:
+        logger.warning("RAWG search failed: %s", exc)
+        return [], exc
 
 
 @router.get("", response_model=SearchResponse)
@@ -21,12 +49,32 @@ async def search(
     q: Annotated[str, Query(min_length=1, max_length=200)],
     settings: Annotated[Settings, Depends(get_settings)],
     _: Annotated[User, Depends(get_current_user)],
+    type: Annotated[SearchType, Query()] = SearchType.all,
 ) -> SearchResponse:
-    try:
-        results = await tmdb.search_titles(q, settings)
-    except tmdb.TMDBError as exc:
+    want_titles = type in (SearchType.all, SearchType.movie, SearchType.series)
+    want_games = type in (SearchType.all, SearchType.game)
+
+    tmdb_task = _safe_tmdb(q, settings) if want_titles else None
+    rawg_task = _safe_rawg(q, settings) if want_games else None
+    tasks = [t for t in (tmdb_task, rawg_task) if t is not None]
+    outcomes = await asyncio.gather(*tasks)
+
+    results: list[tmdb.SearchItem] = []
+    errors: list[Exception] = []
+    for items, error in outcomes:
+        results.extend(items)
+        if error is not None:
+            errors.append(error)
+
+    if type == SearchType.movie:
+        results = [r for r in results if r.type == "movie"]
+    elif type == SearchType.series:
+        results = [r for r in results if r.type == "series"]
+
+    if not results and errors:
         raise ApiError(
             status_code=503,
             detail="Пошук тимчасово недоступний. Спробуйте пізніше.",
-        ) from exc
+        )
+
     return SearchResponse(results=results)

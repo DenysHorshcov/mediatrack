@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     tmdb_language: str = "uk-UA"
     tmdb_timeout_seconds: float = 8.0
 
+    rawg_api_key: SecretStr | None = None
+    rawg_base_url: str = "https://api.rawg.io/api"
+    rawg_timeout_seconds: float = 8.0
+    rawg_page_size: int = 20
+
     @field_validator("database_url", "test_database_url", mode="before")
     @classmethod
     def normalize_empty_url(cls, value: object) -> object:
