@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import HomePage from "@/pages/HomePage";
 import LoginPage from "@/pages/LoginPage";
+import MyListsPage from "@/pages/MyListsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import RegisterPage from "@/pages/RegisterPage";
 import SearchPage from "@/pages/SearchPage";
@@ -44,6 +45,7 @@ export default function App() {
       />
       <Route path="/" element={<Protected><HomePage /></Protected>} />
       <Route path="/search" element={<Protected><SearchPage /></Protected>} />
+      <Route path="/lists" element={<Protected><MyListsPage /></Protected>} />
       <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
       <Route
         path="/title/:provider/:mediaType/:externalId"

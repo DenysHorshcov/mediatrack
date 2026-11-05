@@ -1,5 +1,6 @@
 import type { LoginInput, ProfileUpdate, RegisterInput, User } from "@/types/auth";
-import type { SearchFilter, SearchItem } from "@/types/search";
+import type { LibraryStatus, LibraryTitle } from "@/types/library";
+import type { SearchFilter, SearchItem, SearchItemType } from "@/types/search";
 import type { Title, TitleProvider } from "@/types/title";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -70,4 +71,20 @@ export const api = {
     request<{ title: Title }>(
       `/titles/${encodeURIComponent(provider)}/${encodeURIComponent(mediaType)}/${encodeURIComponent(externalId)}`,
     ),
+  getLibraryEntry: (titleId: string) =>
+    request<{ entry: LibraryTitle }>(`/me/titles/${encodeURIComponent(titleId)}`),
+  setLibraryStatus: (titleId: string, status: LibraryStatus) =>
+    request<{ entry: LibraryTitle }>(`/me/titles/${encodeURIComponent(titleId)}`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    }),
+  removeFromLibrary: (titleId: string) =>
+    request<void>(`/me/titles/${encodeURIComponent(titleId)}`, { method: "DELETE" }),
+  listLibrary: (filters: { status?: LibraryStatus; type?: SearchItemType } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.status) params.set("status", filters.status);
+    if (filters.type) params.set("type", filters.type);
+    const qs = params.toString();
+    return request<{ items: LibraryTitle[] }>(`/me/titles${qs ? `?${qs}` : ""}`);
+  },
 };
