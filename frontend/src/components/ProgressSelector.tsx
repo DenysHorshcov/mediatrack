@@ -14,6 +14,16 @@ type Props = {
   onLastEpisode: () => Promise<void> | void;
 };
 
+function _episodesWord(count: number): string {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) return "епізодів";
+  if (mod10 === 1) return "епізод";
+  if (mod10 >= 2 && mod10 <= 4) return "епізоди";
+  return "епізодів";
+}
+
+
 export function ProgressSelector({
   titleId,
   provider,
@@ -148,7 +158,7 @@ export function ProgressSelector({
             >
               {seasons.map((s) => (
                 <option key={s.season_number} value={s.season_number}>
-                  {s.name || `Сезон ${s.season_number}`} · {s.episode_count}
+                  {s.name || `Сезон ${s.season_number}`} ({s.episode_count} {_episodesWord(s.episode_count)})
                 </option>
               ))}
             </select>
@@ -189,20 +199,20 @@ export function ProgressSelector({
             >
               <Plus size={14} />
             </button>
+            {currentSeason !== null && (
+              <button
+                type="button"
+                onClick={() => void clearProgress()}
+                disabled={saving}
+                aria-label="Прибрати прогрес"
+                title="Прибрати прогрес"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-field border border-line bg-bg text-muted transition hover:border-error hover:text-error disabled:opacity-60"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         </div>
-      )}
-
-      {currentSeason !== null && (
-        <button
-          type="button"
-          onClick={() => void clearProgress()}
-          disabled={saving}
-          className="inline-flex items-center gap-1.5 text-sm text-muted transition hover:text-error disabled:opacity-60"
-        >
-          <X size={14} />
-          Прибрати прогрес
-        </button>
       )}
 
       {error && (
