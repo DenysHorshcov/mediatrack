@@ -6,12 +6,13 @@ import {
   Gamepad2,
   Image as ImageIcon,
   Layers,
-  Star,
   Tv,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { StatusSelector } from "@/components/StatusSelector";
 import { api, ApiError } from "@/lib/api";
 import { seasonsLabel } from "@/lib/plural";
+import type { LibraryStatus } from "@/types/library";
 import type { SearchItemType } from "@/types/search";
 import type { Title, TitleProvider } from "@/types/title";
 
@@ -39,6 +40,8 @@ export default function TitlePage() {
   const mediaType = params.mediaType as SearchItemType | undefined;
   const externalId = params.externalId;
 
+  const [libraryStatus, setLibraryStatus] = useState<LibraryStatus | null>(null);
+
   useEffect(() => {
     if (
       !provider ||
@@ -52,10 +55,20 @@ export default function TitlePage() {
     }
     let cancelled = false;
     setState({ kind: "loading" });
+    setLibraryStatus(null);
     api
       .getTitle(provider, mediaType, externalId)
       .then((response) => {
-        if (!cancelled) setState({ kind: "ready", title: response.title });
+        if (cancelled) return;
+        setState({ kind: "ready", title: response.title });
+        api
+          .getLibraryEntry(response.title.id)
+          .then((entry) => {
+            if (!cancelled) setLibraryStatus(entry.entry.status);
+          })
+          .catch((err: unknown) => {
+            if (err instanceof ApiError && err.status === 404) return;
+          });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -88,12 +101,26 @@ export default function TitlePage() {
       {state.kind === "loading" && <TitleSkeleton />}
       {state.kind === "not-found" && <NotFound />}
       {state.kind === "error" && <ErrorView message={state.message} />}
-      {state.kind === "ready" && <TitleView title={state.title} />}
+      {state.kind === "ready" && (
+        <TitleView
+          title={state.title}
+          libraryStatus={libraryStatus}
+          onLibraryStatusChange={setLibraryStatus}
+        />
+      )}
     </div>
   );
 }
 
-function TitleView({ title }: { title: Title }) {
+function TitleView({
+  title,
+  libraryStatus,
+  onLibraryStatusChange,
+}: {
+  title: Title;
+  libraryStatus: LibraryStatus | null;
+  onLibraryStatusChange: (next: LibraryStatus | null) => void;
+}) {
   const meta = TYPE_META[title.media_type];
   const TypeIcon = meta.icon;
   const dataSource = title.provider === "tmdb" ? "TMDB" : "RAWG";
@@ -165,25 +192,16 @@ function TitleView({ title }: { title: Title }) {
           </div>
         )}
 
-        <ActionsPlaceholder />
+        <StatusSelector
+          titleId={title.id}
+          mediaType={title.media_type}
+          current={libraryStatus}
+          onChange={onLibraryStatusChange}
+        />
 
         <p className="text-xs text-muted">Дані: {dataSource}</p>
       </div>
     </article>
-  );
-}
-
-function ActionsPlaceholder() {
-  return (
-    <div className="space-y-3 rounded-field border border-dashed border-line bg-panel p-4">
-      <div className="flex items-center gap-2 text-sm font-medium text-muted">
-        <Star size={16} />
-        Статус, оцінка й відгук
-      </div>
-      <p className="text-sm text-muted">
-        Кнопки «У списках», «Оцінити» та «Написати відгук» зʼявляться у наступних спринтах.
-      </p>
-    </div>
   );
 }
 
