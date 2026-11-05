@@ -61,3 +61,38 @@ async def search_games(query: str, settings: Settings) -> list[SearchItem]:
         if mapped is not None:
             items.append(mapped)
     return items
+
+
+from app.tmdb import TitleDetails  # noqa: E402  (keeps tmdb as single source for schema)
+
+
+async def fetch_game_details(external_id: str, settings: Settings) -> TitleDetails:
+    if settings.rawg_api_key is None:
+        raise RAWGError("RAWG_API_KEY is not configured")
+
+    url = f"{settings.rawg_base_url}/games/{external_id}"
+    try:
+        async with httpx.AsyncClient(timeout=settings.rawg_timeout_seconds) as client:
+            response = await client.get(
+                url, params={"key": settings.rawg_api_key.get_secret_value()}
+            )
+    except httpx.HTTPError as exc:
+        raise RAWGError("RAWG request failed") from exc
+
+    if response.status_code == 404:
+        raise RAWGError("Title not found")
+    if response.status_code != 200:
+        raise RAWGError(f"RAWG status {response.status_code}")
+
+    payload = response.json()
+    description = (payload.get("description_raw") or "").strip() or None
+    return TitleDetails(
+        title=payload.get("name") or "",
+        original_title=None,
+        description=description,
+        description_language="en" if description else None,
+        poster_url=payload.get("background_image") or None,
+        release_date=payload.get("released") or None,
+        genres=[g.get("name", "") for g in payload.get("genres", []) if g.get("name")],
+        seasons_count=None,
+    )
