@@ -1,10 +1,15 @@
-import { Film, Image as ImageIcon, Tv } from "lucide-react";
+import { Film, Gamepad2, Image as ImageIcon, Tv } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { SearchItem } from "@/types/search";
+import type { SearchItem, SearchItemType } from "@/types/search";
 
-function TypeBadge({ type }: { type: SearchItem["type"] }) {
-  const label = type === "movie" ? "Фільм" : "Серіал";
-  const Icon = type === "movie" ? Film : Tv;
+const TYPE_META: Record<SearchItemType, { label: string; icon: typeof Film; provider: string }> = {
+  movie: { label: "Фільм", icon: Film, provider: "tmdb" },
+  series: { label: "Серіал", icon: Tv, provider: "tmdb" },
+  game: { label: "Гра", icon: Gamepad2, provider: "rawg" },
+};
+
+function TypeBadge({ type }: { type: SearchItemType }) {
+  const { label, icon: Icon } = TYPE_META[type];
   return (
     <span className="inline-flex items-center gap-1 text-xs text-muted">
       <Icon size={12} />
@@ -14,9 +19,10 @@ function TypeBadge({ type }: { type: SearchItem["type"] }) {
 }
 
 export function SearchCard({ item }: { item: SearchItem }) {
+  const { provider } = TYPE_META[item.type];
   return (
     <Link
-      to={`/title/tmdb/${item.type}/${item.id}`}
+      to={`/title/${provider}/${item.type}/${item.id}`}
       className="group flex flex-col rounded-field border border-line bg-bg transition hover:border-accent hover:shadow-sm"
     >
       <div className="aspect-[2/3] overflow-hidden rounded-t-field bg-poster">
