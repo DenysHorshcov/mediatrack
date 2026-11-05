@@ -82,6 +82,8 @@ class MediaTitle(UUIDPrimaryKey, Base):
     description_language: Mapped[str | None] = mapped_column(String(10))
     poster_url: Mapped[str | None] = mapped_column(Text)
     release_date: Mapped[date | None]
+    genres: Mapped[str | None] = mapped_column(Text)
+    seasons_count: Mapped[int | None]
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
