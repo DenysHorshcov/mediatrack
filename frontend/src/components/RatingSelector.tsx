@@ -50,11 +50,7 @@ export function RatingSelector({ titleId, rating, onChange }: Props) {
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-text">Моя оцінка</p>
-          <p className="text-xs text-muted">
-            {rating !== null
-              ? `${rating} / 10 — додасть у «Завершено», якщо ще не в списках.`
-              : "Оцінка від 1 до 10. Додасть у «Завершено», якщо ще не в списках."}
-          </p>
+          <p className="text-xs text-muted">Клацніть по зірці від 1 до 10, щоб оцінити.</p>
         </div>
         {rating !== null && (
           <span className="rounded-field bg-accent-soft px-2 py-1 text-sm font-semibold text-accent-dark">
@@ -64,7 +60,7 @@ export function RatingSelector({ titleId, rating, onChange }: Props) {
       </div>
 
       <div
-        className="flex flex-wrap gap-1"
+        className="flex flex-wrap items-center gap-1"
         role="radiogroup"
         aria-label="Оцінка"
         onMouseLeave={() => setHovered(null)}
@@ -100,19 +96,19 @@ export function RatingSelector({ titleId, rating, onChange }: Props) {
             </button>
           );
         })}
+        {rating !== null && (
+          <button
+            type="button"
+            onClick={() => void clearRating()}
+            disabled={pending !== null}
+            aria-label="Прибрати оцінку"
+            title="Прибрати оцінку"
+            className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-field border border-line bg-bg text-muted transition hover:border-error hover:text-error disabled:opacity-60"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
-
-      {rating !== null && (
-        <button
-          type="button"
-          onClick={() => void clearRating()}
-          disabled={pending !== null}
-          className="inline-flex items-center gap-1.5 text-sm text-muted transition hover:text-error disabled:opacity-60"
-        >
-          <X size={14} />
-          {pending === "clear" ? "Прибираємо…" : "Прибрати оцінку"}
-        </button>
-      )}
 
       {error && (
         <p role="alert" className="rounded-field bg-error-bg px-3 py-2 text-sm text-error">
