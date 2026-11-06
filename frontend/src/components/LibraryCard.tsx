@@ -1,4 +1,4 @@
-import { Film, Gamepad2, Image as ImageIcon, Tv } from "lucide-react";
+import { Film, Gamepad2, Image as ImageIcon, Star, Tv } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { LibraryTitle } from "@/types/library";
 import type { SearchItemType } from "@/types/search";
@@ -19,7 +19,7 @@ export function LibraryCard({ item }: { item: LibraryTitle }) {
       to={`/title/${item.provider}/${item.media_type}/${item.external_id}`}
       className="group flex flex-col rounded-field border border-line bg-bg transition hover:border-accent hover:shadow-sm"
     >
-      <div className="aspect-[2/3] overflow-hidden rounded-t-field bg-poster">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-t-field bg-poster">
         {item.poster_url ? (
           <img
             src={item.poster_url}
@@ -31,6 +31,12 @@ export function LibraryCard({ item }: { item: LibraryTitle }) {
           <div className="flex h-full w-full items-center justify-center text-muted">
             <ImageIcon size={28} strokeWidth={1.5} />
           </div>
+        )}
+        {item.rating !== null && (
+          <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-field bg-accent-dark/90 px-2 py-0.5 text-xs font-semibold text-white">
+            <Star size={10} fill="currentColor" />
+            {item.rating}
+          </span>
         )}
       </div>
       <div className="flex flex-col gap-1 px-3 py-2.5">
