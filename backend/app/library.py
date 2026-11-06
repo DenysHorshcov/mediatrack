@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,12 @@ class StatusUpdate(BaseModel):
     status: LibraryStatus
 
 
+class EntryPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rating: int | None = Field(..., ge=1, le=10)
+
+
 class LibraryTitleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,6 +42,7 @@ class LibraryTitleOut(BaseModel):
     poster_url: str | None = None
     year: int | None = None
     status: LibraryStatus
+    rating: int | None = None
 
 
 class EntryResponse(BaseModel):
@@ -57,6 +64,7 @@ def _to_out(entry: LibraryEntry, title: MediaTitle) -> LibraryTitleOut:
         poster_url=title.poster_url,
         year=year,
         status=entry.status,  # type: ignore[arg-type]
+        rating=entry.rating,
     )
 
 
@@ -131,6 +139,42 @@ def put_entry(
         db.add(entry)
     else:
         entry.status = payload.status
+
+    db.commit()
+    db.refresh(entry)
+    return EntryResponse(entry=_to_out(entry, title))
+
+
+@router.patch("/{title_id}", response_model=EntryResponse)
+def patch_entry(
+    title_id: UUID,
+    payload: EntryPatch,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db_session)],
+) -> EntryResponse:
+    title = db.get(MediaTitle, title_id)
+    if title is None:
+        raise ApiError(status_code=404, detail="Тайтл не знайдено")
+
+    entry = db.execute(
+        select(LibraryEntry).where(
+            LibraryEntry.user_id == user.id,
+            LibraryEntry.title_id == title_id,
+        )
+    ).scalar_one_or_none()
+
+    if entry is None:
+        if payload.rating is None:
+            raise ApiError(status_code=404, detail="Тайтлу немає у ваших списках")
+        entry = LibraryEntry(
+            user_id=user.id,
+            title_id=title_id,
+            status="completed",
+            rating=payload.rating,
+        )
+        db.add(entry)
+    else:
+        entry.rating = payload.rating
 
     db.commit()
     db.refresh(entry)
