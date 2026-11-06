@@ -9,6 +9,7 @@ import {
   Tv,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { RatingSelector } from "@/components/RatingSelector";
 import { StatusSelector } from "@/components/StatusSelector";
 import { api, ApiError } from "@/lib/api";
 import { seasonsLabel } from "@/lib/plural";
@@ -41,6 +42,7 @@ export default function TitlePage() {
   const externalId = params.externalId;
 
   const [libraryStatus, setLibraryStatus] = useState<LibraryStatus | null>(null);
+  const [libraryRating, setLibraryRating] = useState<number | null>(null);
 
   useEffect(() => {
     if (
@@ -56,6 +58,7 @@ export default function TitlePage() {
     let cancelled = false;
     setState({ kind: "loading" });
     setLibraryStatus(null);
+    setLibraryRating(null);
     api
       .getTitle(provider, mediaType, externalId)
       .then((response) => {
@@ -64,7 +67,9 @@ export default function TitlePage() {
         api
           .getLibraryEntry(response.title.id)
           .then((entry) => {
-            if (!cancelled) setLibraryStatus(entry.entry.status);
+            if (cancelled) return;
+            setLibraryStatus(entry.entry.status);
+            setLibraryRating(entry.entry.rating);
           })
           .catch((err: unknown) => {
             if (err instanceof ApiError && err.status === 404) return;
@@ -106,6 +111,13 @@ export default function TitlePage() {
           title={state.title}
           libraryStatus={libraryStatus}
           onLibraryStatusChange={setLibraryStatus}
+          libraryRating={libraryRating}
+          onLibraryRatingChange={(next) => {
+            setLibraryRating(next);
+            if (next !== null && libraryStatus === null) {
+              setLibraryStatus("completed");
+            }
+          }}
         />
       )}
     </div>
@@ -116,10 +128,14 @@ function TitleView({
   title,
   libraryStatus,
   onLibraryStatusChange,
+  libraryRating,
+  onLibraryRatingChange,
 }: {
   title: Title;
   libraryStatus: LibraryStatus | null;
   onLibraryStatusChange: (next: LibraryStatus | null) => void;
+  libraryRating: number | null;
+  onLibraryRatingChange: (next: number | null) => void;
 }) {
   const meta = TYPE_META[title.media_type];
   const TypeIcon = meta.icon;
@@ -196,7 +212,16 @@ function TitleView({
           titleId={title.id}
           mediaType={title.media_type}
           current={libraryStatus}
-          onChange={onLibraryStatusChange}
+          onChange={(next) => {
+            onLibraryStatusChange(next);
+            if (next === null) onLibraryRatingChange(null);
+          }}
+        />
+
+        <RatingSelector
+          titleId={title.id}
+          rating={libraryRating}
+          onChange={onLibraryRatingChange}
         />
 
         <p className="text-xs text-muted">Дані: {dataSource}</p>
