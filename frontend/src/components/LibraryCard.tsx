@@ -50,6 +50,16 @@ export function LibraryCard({ item }: { item: LibraryTitle }) {
             <Icon size={12} />
             {label}
           </span>
+          {item.media_type === "series" &&
+            item.current_season !== null &&
+            item.current_episode !== null && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="font-medium text-accent-dark">
+                  S{item.current_season}E{item.current_episode}
+                </span>
+              </>
+            )}
         </div>
       </div>
     </Link>
