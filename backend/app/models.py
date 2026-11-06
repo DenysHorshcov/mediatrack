@@ -131,6 +131,8 @@ class LibraryEntry(UUIDPrimaryKey, Timestamps, Base):
     review_text: Mapped[str | None] = mapped_column(Text)
     review_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    current_season: Mapped[int | None]
+    current_episode: Mapped[int | None]
 
     __table_args__ = (
         UniqueConstraint("user_id", "title_id"),
