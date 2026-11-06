@@ -78,6 +78,11 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ status }),
     }),
+  setLibraryRating: (titleId: string, rating: number | null) =>
+    request<{ entry: LibraryTitle }>(`/me/titles/${encodeURIComponent(titleId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ rating }),
+    }),
   removeFromLibrary: (titleId: string) =>
     request<void>(`/me/titles/${encodeURIComponent(titleId)}`, { method: "DELETE" }),
   listLibrary: (filters: { status?: LibraryStatus; type?: SearchItemType } = {}) => {

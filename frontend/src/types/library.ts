@@ -17,4 +17,5 @@ export type LibraryTitle = {
   poster_url: string | null;
   year: number | null;
   status: LibraryStatus;
+  rating: number | null;
 };
