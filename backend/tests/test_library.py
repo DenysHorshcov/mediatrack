@@ -175,3 +175,91 @@ def test_list_rejects_invalid_filter(client: TestClient) -> None:
     _register(client)
     assert client.get("/api/me/titles?status=bogus").status_code == 422
     assert client.get("/api/me/titles?type=book").status_code == 422
+
+
+def test_patch_requires_auth(client: TestClient) -> None:
+    assert client.patch(
+        "/api/me/titles/00000000-0000-0000-0000-000000000000",
+        json={"rating": 8},
+    ).status_code == 401
+
+
+def test_patch_rejects_out_of_range(client: TestClient, db: Connection) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    client.put(f"/api/me/titles/{title_id}", json={"status": "planned"})
+    for bad in (0, 11, -1):
+        response = client.patch(f"/api/me/titles/{title_id}", json={"rating": bad})
+        assert response.status_code == 422
+        assert response.json()["fields"]["rating"]
+
+
+def test_patch_rejects_extra_fields(client: TestClient, db: Connection) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    client.put(f"/api/me/titles/{title_id}", json={"status": "planned"})
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"rating": 8, "status": "completed"}
+    )
+    assert response.status_code == 422
+
+
+def test_patch_creates_entry_with_completed_status(
+    client: TestClient, db: Connection
+) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    response = client.patch(f"/api/me/titles/{title_id}", json={"rating": 9})
+    assert response.status_code == 200
+    body = response.json()["entry"]
+    assert body["rating"] == 9
+    assert body["status"] == "completed"
+
+
+def test_patch_updates_rating_on_existing_entry(
+    client: TestClient, db: Connection
+) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    client.put(f"/api/me/titles/{title_id}", json={"status": "in_progress"})
+    response = client.patch(f"/api/me/titles/{title_id}", json={"rating": 7})
+    assert response.status_code == 200
+    body = response.json()["entry"]
+    assert body["status"] == "in_progress"  # status preserved
+    assert body["rating"] == 7
+
+
+def test_patch_clears_rating(client: TestClient, db: Connection) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    client.patch(f"/api/me/titles/{title_id}", json={"rating": 5})
+    response = client.patch(f"/api/me/titles/{title_id}", json={"rating": None})
+    assert response.status_code == 200
+    assert response.json()["entry"]["rating"] is None
+
+
+def test_patch_clear_without_entry_returns_404(
+    client: TestClient, db: Connection
+) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    response = client.patch(f"/api/me/titles/{title_id}", json={"rating": None})
+    assert response.status_code == 404
+
+
+def test_patch_returns_404_for_unknown_title(client: TestClient) -> None:
+    _register(client)
+    response = client.patch(
+        "/api/me/titles/00000000-0000-0000-0000-000000000000",
+        json={"rating": 5},
+    )
+    assert response.status_code == 404
+
+
+def test_list_returns_rating(client: TestClient, db: Connection) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    client.patch(f"/api/me/titles/{title_id}", json={"rating": 6})
+    items = client.get("/api/me/titles").json()["items"]
+    assert items[0]["rating"] == 6
+    assert items[0]["status"] == "completed"
