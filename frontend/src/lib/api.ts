@@ -92,6 +92,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(progress),
     }),
+  setLibraryReview: (titleId: string, review: string | null) =>
+    request<{ entry: LibraryTitle }>(`/me/titles/${encodeURIComponent(titleId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ review }),
+    }),
   getSeasons: (provider: TitleProvider, mediaType: string, externalId: string) =>
     request<{ seasons: Season[] }>(
       `/titles/${encodeURIComponent(provider)}/${encodeURIComponent(mediaType)}/${encodeURIComponent(externalId)}/seasons`,

@@ -11,6 +11,7 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ProgressSelector } from "@/components/ProgressSelector";
 import { RatingSelector } from "@/components/RatingSelector";
+import { ReviewEditor } from "@/components/ReviewEditor";
 import { StatusSelector } from "@/components/StatusSelector";
 import { api, ApiError } from "@/lib/api";
 import { seasonsLabel } from "@/lib/plural";
@@ -48,6 +49,10 @@ export default function TitlePage() {
     season: number | null;
     episode: number | null;
   }>({ season: null, episode: null });
+  const [libraryReview, setLibraryReview] = useState<{
+    review: string | null;
+    reviewUpdatedAt: string | null;
+  }>({ review: null, reviewUpdatedAt: null });
 
   useEffect(() => {
     if (
@@ -65,6 +70,7 @@ export default function TitlePage() {
     setLibraryStatus(null);
     setLibraryRating(null);
     setLibraryProgress({ season: null, episode: null });
+    setLibraryReview({ review: null, reviewUpdatedAt: null });
     api
       .getTitle(provider, mediaType, externalId)
       .then((response) => {
@@ -79,6 +85,10 @@ export default function TitlePage() {
             setLibraryProgress({
               season: entry.entry.current_season,
               episode: entry.entry.current_episode,
+            });
+            setLibraryReview({
+              review: entry.entry.review,
+              reviewUpdatedAt: entry.entry.review_updated_at,
             });
           })
           .catch((err: unknown) => {
@@ -139,6 +149,13 @@ export default function TitlePage() {
             await api.setLibraryStatus(state.title.id, "completed");
             setLibraryStatus("completed");
           }}
+          libraryReview={libraryReview}
+          onLibraryReviewChange={(next) => {
+            setLibraryReview(next);
+            if (next.review !== null && libraryStatus === null) {
+              setLibraryStatus("completed");
+            }
+          }}
         />
       )}
     </div>
@@ -154,6 +171,8 @@ function TitleView({
   libraryProgress,
   onLibraryProgressChange,
   onMarkCompleted,
+  libraryReview,
+  onLibraryReviewChange,
 }: {
   title: Title;
   libraryStatus: LibraryStatus | null;
@@ -163,6 +182,8 @@ function TitleView({
   libraryProgress: { season: number | null; episode: number | null };
   onLibraryProgressChange: (season: number | null, episode: number | null) => void;
   onMarkCompleted: () => Promise<void>;
+  libraryReview: { review: string | null; reviewUpdatedAt: string | null };
+  onLibraryReviewChange: (next: { review: string | null; reviewUpdatedAt: string | null }) => void;
 }) {
   const meta = TYPE_META[title.media_type];
   const TypeIcon = meta.icon;
@@ -261,6 +282,13 @@ function TitleView({
             onLastEpisode={onMarkCompleted}
           />
         )}
+
+        <ReviewEditor
+          titleId={title.id}
+          review={libraryReview.review}
+          reviewUpdatedAt={libraryReview.reviewUpdatedAt}
+          onChange={onLibraryReviewChange}
+        />
       </div>
     </article>
   );
