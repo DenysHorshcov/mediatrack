@@ -406,6 +406,87 @@ def test_patch_clears_progress(
     assert body["current_episode"] is None
 
 
+def test_patch_creates_entry_with_review_and_sets_completed(
+    client: TestClient, db: Connection
+) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"review": "Шедевр, передивлявся тричі."}
+    )
+    assert response.status_code == 200
+    body = response.json()["entry"]
+    assert body["review"] == "Шедевр, передивлявся тричі."
+    assert body["review_updated_at"] is not None
+    assert body["status"] == "completed"
+
+
+def test_patch_updates_review_on_existing_entry(
+    client: TestClient, db: Connection
+) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    client.put(f"/api/me/titles/{title_id}", json={"status": "in_progress"})
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"review": "Поки що подобається."}
+    )
+    assert response.status_code == 200
+    body = response.json()["entry"]
+    assert body["status"] == "in_progress"  # status preserved
+    assert body["review"] == "Поки що подобається."
+
+
+def test_patch_clears_review(client: TestClient, db: Connection) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    client.patch(f"/api/me/titles/{title_id}", json={"review": "Чернетка"})
+    response = client.patch(f"/api/me/titles/{title_id}", json={"review": None})
+    assert response.status_code == 200
+    body = response.json()["entry"]
+    assert body["review"] is None
+    assert body["review_updated_at"] is None
+
+
+def test_patch_rejects_review_over_2000_chars(
+    client: TestClient, db: Connection
+) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"review": "a" * 2001}
+    )
+    assert response.status_code == 422
+
+
+def test_patch_rejects_whitespace_only_review(
+    client: TestClient, db: Connection
+) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    response = client.patch(f"/api/me/titles/{title_id}", json={"review": "   \n\t"})
+    assert response.status_code == 422
+
+
+def test_patch_trims_review_whitespace(
+    client: TestClient, db: Connection
+) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    response = client.patch(
+        f"/api/me/titles/{title_id}", json={"review": "  Чудово  \n"}
+    )
+    assert response.status_code == 200
+    assert response.json()["entry"]["review"] == "Чудово"
+
+
+def test_list_returns_review(client: TestClient, db: Connection) -> None:
+    _register(client)
+    title_id = _title_in_connection(db)
+    client.patch(f"/api/me/titles/{title_id}", json={"review": "Коротко: топ."})
+    items = client.get("/api/me/titles").json()["items"]
+    assert items[0]["review"] == "Коротко: топ."
+
+
 def test_seasons_endpoint_requires_series(client: TestClient, monkeypatch) -> None:
     _register(client)
     response = client.get("/api/titles/tmdb/movie/603/seasons")
