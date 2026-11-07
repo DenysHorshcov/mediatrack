@@ -6,7 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
-ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+ENV_FILE = REPO_ROOT / ".env"
 
 
 class Settings(BaseSettings):
@@ -31,6 +32,8 @@ class Settings(BaseSettings):
     session_cookie_samesite: str = "lax"
 
     frontend_origin: str = "http://localhost:5173"
+    # Built frontend (npm run build) served by the API when it exists.
+    frontend_dist_dir: Path = REPO_ROOT / "frontend" / "dist"
 
     tmdb_api_key: SecretStr | None = None
     tmdb_base_url: str = "https://api.themoviedb.org/3"
