@@ -2,6 +2,7 @@ import type { LoginInput, ProfileUpdate, RegisterInput, User } from "@/types/aut
 import type { LibraryStatus, LibraryTitle } from "@/types/library";
 import type { SearchFilter, SearchItem, SearchItemType } from "@/types/search";
 import type { Season } from "@/types/season";
+import type { Stats } from "@/types/stats";
 import type { Title, TitleProvider } from "@/types/title";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -103,6 +104,7 @@ export const api = {
     ),
   removeFromLibrary: (titleId: string) =>
     request<void>(`/me/titles/${encodeURIComponent(titleId)}`, { method: "DELETE" }),
+  getStats: () => request<Stats>("/me/stats"),
   listLibrary: (filters: { status?: LibraryStatus; type?: SearchItemType } = {}) => {
     const params = new URLSearchParams();
     if (filters.status) params.set("status", filters.status);
