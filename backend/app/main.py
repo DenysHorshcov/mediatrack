@@ -8,6 +8,7 @@ from app.exceptions import ApiError, api_error_handler, validation_error_handler
 from app.frontend import mount_frontend
 from app.library import router as library_router
 from app.search import router as search_router
+from app.stats import router as stats_router
 from app.titles import router as titles_router
 from app.users import router as users_router
 
@@ -31,6 +32,7 @@ app.include_router(users_router)
 app.include_router(search_router)
 app.include_router(titles_router)
 app.include_router(library_router)
+app.include_router(stats_router)
 
 
 @app.get("/api/health")
