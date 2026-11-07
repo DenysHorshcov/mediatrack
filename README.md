@@ -70,7 +70,7 @@ uv run --locked pytest -q --database-tests
 
 ## Деплой
 
-Робоча версія: _буде додано після першого деплою_ (`https://<service>.onrender.com`)
+Робоча версія: https://mediatrack-7isg.onrender.com (безкоштовний хостинг засинає без запитів, перший запит може тривати ~50 с)
 
 Один сервіс: FastAPI віддає API під `/api` і зібраний фронтенд (`frontend/dist`) з того ж домену. Будь-який GET-шлях поза `/api` повертає `index.html`, щоб працювали посилання React Router. Невідомі `/api/...` повертають JSON 404.
 
