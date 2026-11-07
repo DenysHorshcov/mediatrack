@@ -3,6 +3,7 @@ import { Image, Pencil, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
+import { StatsBlock } from "@/components/StatsBlock";
 import { ApiError } from "@/lib/api";
 import { type ProfileFields, validateProfileForm } from "@/lib/validation";
 import { useAuth } from "@/stores/auth";
@@ -145,6 +146,8 @@ export default function ProfilePage() {
           </div>
         )}
       </section>
+
+      <StatsBlock />
 
       <section className="space-y-4">
         <div>
