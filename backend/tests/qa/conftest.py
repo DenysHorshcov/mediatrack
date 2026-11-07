@@ -18,6 +18,8 @@ from app.models import User
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_TEST_KEY = "test-tmdb-key"
+STEAM_HOST = "store.steampowered.com"
+STEAM_SEARCH_PATH = "/api/storesearch/"
 
 
 @pytest.fixture
@@ -71,6 +73,14 @@ def search_client() -> Iterator[TestClient]:
 
 @pytest.fixture
 def tmdb_mock() -> Iterator[respx.MockRouter]:
-    """Перехоплює всі httpx-запити до TMDB; справжня мережа не використовується."""
+    """Перехоплює всі httpx-запити до TMDB; справжня мережа не використовується.
+
+    /api/search без type шукає ще й ігри у Steam Store API (SCRUM-58), тому
+    Steam відповідає порожнім результатом: тести лишаються про TMDB.
+    """
     with respx.mock(base_url=TMDB_BASE_URL, assert_all_called=True) as router:
+        # host= робить маршрут абсолютним: base_url TMDB до нього не додається.
+        router.route(host=STEAM_HOST, path=STEAM_SEARCH_PATH).respond(
+            200, json={"total": 0, "items": []}
+        )
         yield router
