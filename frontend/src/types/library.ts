@@ -20,4 +20,6 @@ export type LibraryTitle = {
   rating: number | null;
   current_season: number | null;
   current_episode: number | null;
+  review: string | null;
+  review_updated_at: string | null;
 };
