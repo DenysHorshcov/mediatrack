@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -26,20 +27,29 @@ class StatusUpdate(BaseModel):
     status: LibraryStatus
 
 
+REVIEW_MAX_LENGTH = 2000
+
+
 class EntryPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     rating: int | None = Field(default=None, ge=1, le=10)
     season: int | None = Field(default=None, ge=1)
     episode: int | None = Field(default=None, ge=1)
+    review: str | None = Field(default=None, max_length=REVIEW_MAX_LENGTH)
 
     @model_validator(mode="after")
     def _at_least_one_field(self) -> "EntryPatch":
         provided = self.model_fields_set
         if not provided:
-            raise ValueError("Передайте rating або season/episode")
+            raise ValueError("Передайте rating, review або season/episode")
         if ("season" in provided) != ("episode" in provided):
             raise ValueError("season і episode передаються разом")
+        if "review" in provided and self.review is not None:
+            trimmed = self.review.strip()
+            if not trimmed:
+                raise ValueError("Відгук не може бути порожнім")
+            self.review = trimmed
         return self
 
 
@@ -57,6 +67,8 @@ class LibraryTitleOut(BaseModel):
     rating: int | None = None
     current_season: int | None = None
     current_episode: int | None = None
+    review: str | None = None
+    review_updated_at: datetime | None = None
 
 
 class EntryResponse(BaseModel):
@@ -81,6 +93,8 @@ def _to_out(entry: LibraryEntry, title: MediaTitle) -> LibraryTitleOut:
         rating=entry.rating,
         current_season=entry.current_season,
         current_episode=entry.current_episode,
+        review=entry.review_text,
+        review_updated_at=entry.review_updated_at,
     )
 
 
@@ -205,6 +219,7 @@ async def patch_entry(
     provided = payload.model_fields_set
     sets_rating = "rating" in provided
     sets_progress = "season" in provided and "episode" in provided
+    sets_review = "review" in provided
 
     if sets_progress and payload.season is not None and payload.episode is not None:
         await _validate_progress(title, payload.season, payload.episode, settings)
@@ -216,26 +231,37 @@ async def patch_entry(
         )
     ).scalar_one_or_none()
 
+    def _apply_review(target: LibraryEntry) -> None:
+        if payload.review is None:
+            target.review_text = None
+            target.review_updated_at = None
+        else:
+            target.review_text = payload.review
+            target.review_updated_at = datetime.now(timezone.utc)
+
     if entry is None:
-        is_clear_only = (
-            (sets_rating and payload.rating is None)
-            or (sets_progress and payload.season is None and payload.episode is None)
-        ) and not (
-            (sets_rating and payload.rating is not None)
-            or (sets_progress and payload.season is not None)
+        only_clearing = (
+            (not sets_rating or payload.rating is None)
+            and (not sets_progress or payload.season is None)
+            and (not sets_review or payload.review is None)
         )
-        if is_clear_only:
+        if only_clearing:
             raise ApiError(status_code=404, detail="Тайтлу немає у ваших списках")
+        has_rating = sets_rating and payload.rating is not None
+        has_review = sets_review and payload.review is not None
+        initial_status = "completed" if has_rating or has_review else "in_progress"
         entry = LibraryEntry(
             user_id=user.id,
             title_id=title_id,
-            status="completed" if sets_rating and payload.rating is not None else "in_progress",
+            status=initial_status,
         )
         if sets_rating:
             entry.rating = payload.rating
         if sets_progress:
             entry.current_season = payload.season
             entry.current_episode = payload.episode
+        if sets_review:
+            _apply_review(entry)
         db.add(entry)
     else:
         if sets_rating:
@@ -243,6 +269,8 @@ async def patch_entry(
         if sets_progress:
             entry.current_season = payload.season
             entry.current_episode = payload.episode
+        if sets_review:
+            _apply_review(entry)
 
     db.commit()
     db.refresh(entry)
