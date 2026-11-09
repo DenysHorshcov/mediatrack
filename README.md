@@ -1,9 +1,9 @@
 # MediaTrack
 
-Вебзастосунок для обліку фільмів, серіалів та ігор українською. Користувач шукає тайтли, додає їх у свої списки зі статусом, ставить оцінки, пише відгуки, відмічає прогрес серіалів і бачить статистику у профілі.
+Вебзастосунок для обліку фільмів, серіалів та ігор українською.
 
 - Робоча версія: https://mediatrack-7isg.onrender.com
-- Документація API (Swagger): https://mediatrack-7isg.onrender.com/docs
+- Swagger: https://mediatrack-7isg.onrender.com/docs
 - Інструкція користувача: [docs/user-guide.md](docs/user-guide.md)
 - Схема БД: [docs/database-schema.png](docs/database-schema.png), [docs/database-schema.dbml](docs/database-schema.dbml)
 
@@ -37,11 +37,9 @@ docs/       схема БД, інструкція користувача
 Dockerfile  один образ: API + зібраний фронтенд
 ```
 
-## Запуск локально
+## Налаштування
 
 Потрібні uv 0.13.0 та Node.js 22.
-
-## Налаштування
 
 У корені репозиторію створити `.env`, якщо його ще немає:
 
