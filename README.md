@@ -1,5 +1,44 @@
 # MediaTrack
 
+Вебзастосунок для обліку фільмів, серіалів та ігор українською. Користувач шукає тайтли, додає їх у свої списки зі статусом, ставить оцінки, пише відгуки, відмічає прогрес серіалів і бачить статистику у профілі.
+
+- Робоча версія: https://mediatrack-7isg.onrender.com
+- Документація API (Swagger): https://mediatrack-7isg.onrender.com/docs
+- Інструкція користувача: [docs/user-guide.md](docs/user-guide.md)
+- Схема БД: [docs/database-schema.png](docs/database-schema.png), [docs/database-schema.dbml](docs/database-schema.dbml)
+
+## Що вміє
+
+- реєстрація, вхід, вихід; профіль з нікнеймом і аватаром
+- пошук фільмів і серіалів (TMDB) та ігор (Steam Store API), фільтр за типом
+- сторінка тайтлу з описом українською, якщо він є, інакше англійською
+- статуси: дивлюсь / граю, у планах, завершено, на паузі, закинуто
+- «Мої списки» з фільтрами за статусом і типом
+- оцінка 1–10, відгук до 2000 символів, прогрес серіалу (сезон і серія)
+- статистика у профілі: кількість за типами і статусами, середня оцінка, завершено цього року
+
+## Стек
+
+| Частина | Технології |
+| --- | --- |
+| Фронтенд | React 18, TypeScript, Vite, React Router, Tailwind CSS, Vitest |
+| Бекенд | Python 3.14, FastAPI, SQLAlchemy 2, Alembic, pydantic, httpx |
+| БД | PostgreSQL (Neon: гілки `development`, `test`, `production`) |
+| Авторизація | JWT у httpOnly-cookie, хеші паролів argon2 |
+| Тести | pytest, FastAPI TestClient, respx (підміна TMDB і Steam), Vitest |
+| CI / деплой | GitHub Actions, Docker, Render |
+
+## Структура
+
+```
+backend/    FastAPI-застосунок (app/), міграції (migrations/), тести (tests/, tests/qa/)
+frontend/   React-застосунок (src/pages, src/components, src/lib)
+docs/       схема БД, інструкція користувача
+Dockerfile  один образ: API + зібраний фронтенд
+```
+
+## Запуск локально
+
 Потрібні uv 0.13.0 та Node.js 22.
 
 ## Налаштування
