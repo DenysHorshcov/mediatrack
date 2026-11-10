@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api_docs import SESSION_COOKIE_HEADER, UNAUTHORIZED, VALIDATION, error
 from app.config import Settings, get_settings
 from app.database import get_db_session
 from app.deps import get_current_user
@@ -29,7 +30,23 @@ def _set_session_cookie(response: Response, user: User, settings: Settings) -> N
 
 
 @router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+    "/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Реєстрація",
+    description=(
+        "Створює користувача і одразу логінить: у відповіді ставиться cookie сесії. "
+        "Email і нікнейм унікальні без урахування регістру."
+    ),
+    responses={
+        201: {"description": "Користувача створено, cookie сесії встановлено.", "headers": SESSION_COOKIE_HEADER},
+        409: error(
+            "Email або нікнейм уже зайняті.",
+            "Email вже зареєстрований",
+            {"email": "Email вже зареєстрований"},
+        ),
+        **VALIDATION,
+    },
 )
 def register(
     payload: RegisterInput,
@@ -70,7 +87,20 @@ def register(
     return UserResponse(user=user)
 
 
-@router.post("/login", response_model=UserResponse)
+@router.post(
+    "/login",
+    response_model=UserResponse,
+    summary="Вхід",
+    description="Перевіряє email і пароль та ставить cookie сесії.",
+    responses={
+        200: {"description": "Успішний вхід, cookie сесії встановлено.", "headers": SESSION_COOKIE_HEADER},
+        401: error(
+            "Неправильний email або пароль (однакова відповідь для обох випадків).",
+            "Неправильний email або пароль",
+        ),
+        **VALIDATION,
+    },
+)
 def login(
     payload: LoginInput,
     response: Response,
@@ -87,7 +117,13 @@ def login(
     return UserResponse(user=user)
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Вихід",
+    description="Видаляє cookie сесії. Працює і без авторизації.",
+    responses={204: {"description": "Cookie сесії видалено."}},
+)
 def logout(
     response: Response,
     settings: Annotated[Settings, Depends(get_settings)],
@@ -103,6 +139,15 @@ def logout(
     return response
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Поточний користувач",
+    description=(
+        "Повертає користувача за cookie сесії. Фронт викликає його при старті, "
+        "щоб зрозуміти, чи користувач залогінений. Те саме, що `GET /api/users/me`."
+    ),
+    responses={**UNAUTHORIZED},
+)
 def me(user: Annotated[User, Depends(get_current_user)]) -> UserResponse:
     return UserResponse(user=user)

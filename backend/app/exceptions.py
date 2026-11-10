@@ -3,6 +3,24 @@
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+
+class ErrorResponse(BaseModel):
+    """Формат усіх помилок API (4xx, 5xx)."""
+
+    detail: str = Field(
+        description="Повідомлення для користувача українською.",
+        examples=["Перевірте правильність полів"],
+    )
+    fields: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Помилки окремих полів тіла запиту: назва поля → повідомлення. "
+            "Буває у 400, 409 і 422; у 422 для помилок query/path-параметрів може бути порожнім."
+        ),
+        examples=[{"email": "Email вже зареєстрований"}],
+    )
 
 
 class ApiError(Exception):

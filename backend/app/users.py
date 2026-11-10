@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api_docs import UNAUTHORIZED, VALIDATION, error
 from app.database import get_db_session
 from app.deps import get_current_user
 from app.exceptions import ApiError
@@ -17,16 +18,53 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 class ProfileUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    username: str | None = Field(default=None, min_length=1, max_length=30)
-    avatar_url: str | None = Field(default=None, max_length=2048)
+    username: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=30,
+        description=(
+            "Новий нікнейм, до 30 символів; пробіли по краях обрізаються. "
+            "Порожній або з самих пробілів — 422."
+        ),
+        examples=["olena_k"],
+    )
+    avatar_url: str | None = Field(
+        default=None,
+        max_length=2048,
+        description="Посилання на аватар. null або порожній рядок прибирає аватар.",
+        examples=["https://example.com/avatar.png"],
+    )
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Мій профіль",
+    description="Те саме, що `GET /api/auth/me`; використовується сторінкою профілю.",
+    responses={**UNAUTHORIZED},
+)
 def get_me(user: Annotated[User, Depends(get_current_user)]) -> UserResponse:
     return UserResponse(user=user)
 
 
-@router.patch("/me", response_model=UserResponse)
+@router.patch(
+    "/me",
+    response_model=UserResponse,
+    summary="Змінити профіль",
+    description=(
+        "Змінює лише передані поля (`username`, `avatar_url`); невідомі поля — 422. "
+        "Нікнейм унікальний без урахування регістру."
+    ),
+    responses={
+        **UNAUTHORIZED,
+        409: error(
+            "Нікнейм уже зайнятий іншим користувачем.",
+            "Нікнейм вже зайнятий",
+            {"username": "Нікнейм вже зайнятий"},
+        ),
+        **VALIDATION,
+    },
+)
 def update_me(
     payload: ProfileUpdate,
     user: Annotated[User, Depends(get_current_user)],

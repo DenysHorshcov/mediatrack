@@ -2,10 +2,11 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api_docs import UNAUTHORIZED
 from app.database import get_db_session
 from app.deps import get_current_user
 from app.models import LibraryEntry, MediaTitle, User
@@ -18,28 +19,46 @@ STATUSES = ("planned", "in_progress", "completed", "on_hold", "dropped")
 
 
 class ByMediaType(BaseModel):
-    movie: int = 0
-    series: int = 0
-    game: int = 0
+    """Кількість тайтлів у списках за типом."""
+
+    movie: int = Field(default=0, description="Фільми.", examples=[2])
+    series: int = Field(default=0, description="Серіали.", examples=[1])
+    game: int = Field(default=0, description="Ігри.", examples=[1])
 
 
 class ByStatus(BaseModel):
-    planned: int = 0
-    in_progress: int = 0
-    completed: int = 0
-    on_hold: int = 0
-    dropped: int = 0
+    """Кількість тайтлів у списках за статусом."""
+
+    planned: int = Field(default=0, description="У планах.", examples=[1])
+    in_progress: int = Field(default=0, description="Дивлюсь / граю.", examples=[1])
+    completed: int = Field(default=0, description="Завершено.", examples=[1])
+    on_hold: int = Field(default=0, description="На паузі.", examples=[0])
+    dropped: int = Field(default=0, description="Закинуто.", examples=[1])
 
 
 class StatsResponse(BaseModel):
-    total: int
-    by_type: ByMediaType
-    by_status: ByStatus
-    average_rating: float | None
-    completed_this_year: int
+    total: int = Field(description="Усього тайтлів у списках.", examples=[4])
+    by_type: ByMediaType = Field(description="Розподіл за типом.")
+    by_status: ByStatus = Field(description="Розподіл за статусом.")
+    average_rating: float | None = Field(
+        description="Середня оцінка серед оцінених тайтлів, округлена до 0.1; null — оцінок немає.",
+        examples=[7.5],
+    )
+    completed_this_year: int = Field(
+        description=(
+            "Тайтли зі статусом completed, запис яких востаннє змінювався в поточному році (UTC)."
+        ),
+        examples=[1],
+    )
 
 
-@router.get("", response_model=StatsResponse)
+@router.get(
+    "",
+    response_model=StatsResponse,
+    summary="Моя статистика",
+    description="Зведення по списках поточного користувача для сторінки профілю.",
+    responses={**UNAUTHORIZED},
+)
 def get_stats(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db_session)],

@@ -2,12 +2,13 @@ from datetime import datetime, timezone
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Body, Depends, Path, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app import tmdb
+from app.api_docs import UNAUTHORIZED, VALIDATION, error
 from app.config import Settings, get_settings
 from app.database import get_db_session
 from app.deps import get_current_user
@@ -19,12 +20,18 @@ router = APIRouter(prefix="/api/me/titles", tags=["library"])
 LIBRARY_STATUSES = ("planned", "in_progress", "completed", "on_hold", "dropped")
 LibraryStatus = Literal["planned", "in_progress", "completed", "on_hold", "dropped"]
 MediaType = Literal["movie", "series", "game"]
+Provider = Literal["tmdb", "rawg"]
+
+STATUS_HELP = (
+    "planned — у планах, in_progress — дивлюсь / граю, completed — завершено, "
+    "on_hold — на паузі, dropped — закинуто."
+)
 
 
 class StatusUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: LibraryStatus
+    status: LibraryStatus = Field(description=f"Статус: {STATUS_HELP}", examples=["planned"])
 
 
 REVIEW_MAX_LENGTH = 2000
@@ -33,10 +40,30 @@ REVIEW_MAX_LENGTH = 2000
 class EntryPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    rating: int | None = Field(default=None, ge=1, le=10)
-    season: int | None = Field(default=None, ge=1)
-    episode: int | None = Field(default=None, ge=1)
-    review: str | None = Field(default=None, max_length=REVIEW_MAX_LENGTH)
+    rating: int | None = Field(
+        default=None, ge=1, le=10, description="Оцінка 1–10; null прибирає оцінку.", examples=[8]
+    )
+    season: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Сезон (від 1); передається разом з episode. "
+            "null разом з episode: null скидає прогрес."
+        ),
+        examples=[2],
+    )
+    episode: int | None = Field(
+        default=None, ge=1, description="Епізод (від 1); передається разом з season.", examples=[5]
+    )
+    review: str | None = Field(
+        default=None,
+        max_length=REVIEW_MAX_LENGTH,
+        description=(
+            f"Відгук до {REVIEW_MAX_LENGTH} символів, пробіли по краях обрізаються; "
+            "null видаляє відгук. Порожній рядок — 422."
+        ),
+        examples=["Чудовий фільм"],
+    )
 
     @model_validator(mode="after")
     def _at_least_one_field(self) -> "EntryPatch":
@@ -56,19 +83,32 @@ class EntryPatch(BaseModel):
 class LibraryTitleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    provider: str
-    media_type: str
-    external_id: str
-    title: str
-    poster_url: str | None = None
-    year: int | None = None
-    status: LibraryStatus
-    rating: int | None = None
-    current_season: int | None = None
-    current_episode: int | None = None
-    review: str | None = None
-    review_updated_at: datetime | None = None
+    id: UUID = Field(description="Id тайтлу в MediaTrack (той самий, що в URL).")
+    provider: Provider = Field(description="Джерело: tmdb або rawg (Steam).", examples=["tmdb"])
+    media_type: MediaType = Field(description="Тип тайтлу.", examples=["series"])
+    external_id: str = Field(description="Id у джерелі.", examples=["1396"])
+    title: str = Field(description="Назва.", examples=["Пуститися берега"])
+    poster_url: str | None = Field(
+        default=None,
+        description="URL постера.",
+        examples=["https://image.tmdb.org/t/p/w342/ggFHVNu6YYI5L9pCfOacjizRGt.jpg"],
+    )
+    year: int | None = Field(default=None, description="Рік виходу.", examples=[2008])
+    status: LibraryStatus = Field(description=f"Статус: {STATUS_HELP}", examples=["in_progress"])
+    rating: int | None = Field(default=None, description="Оцінка 1–10 або null.", examples=[8])
+    current_season: int | None = Field(
+        default=None, description="Сезон, на якому зупинились (лише серіали).", examples=[2]
+    )
+    current_episode: int | None = Field(
+        default=None, description="Епізод, на якому зупинились (лише серіали).", examples=[5]
+    )
+    review: str | None = Field(
+        default=None, description="Відгук або null.", examples=["Чудовий серіал"]
+    )
+    review_updated_at: datetime | None = Field(
+        default=None,
+        description="Коли відгук востаннє змінювали (UTC); null, якщо відгуку немає.",
+    )
 
 
 class EntryResponse(BaseModel):
@@ -76,7 +116,34 @@ class EntryResponse(BaseModel):
 
 
 class ListResponse(BaseModel):
-    items: list[LibraryTitleOut]
+    items: list[LibraryTitleOut] = Field(
+        description="Записи, від нещодавно змінених до старіших."
+    )
+
+
+TitleIdParam = Annotated[
+    UUID,
+    Path(
+        description=(
+            "Id тайтлу в MediaTrack: поле `title.id` з `GET /api/titles/...` (не external_id)."
+        )
+    ),
+]
+
+_TITLE_NOT_FOUND = error("Тайтлу з таким id немає в БД.", "Тайтл не знайдено")
+_ENTRY_NOT_FOUND = error("Тайтлу немає у списках користувача.", "Тайтлу немає у ваших списках")
+
+PATCH_EXAMPLES = {
+    "rating": {"summary": "Поставити оцінку", "value": {"rating": 8}},
+    "review": {"summary": "Написати або змінити відгук", "value": {"review": "Чудовий фільм"}},
+    "progress": {"summary": "Зберегти прогрес серіалу", "value": {"season": 2, "episode": 5}},
+    "clear_rating": {"summary": "Прибрати оцінку", "value": {"rating": None}},
+    "clear_review": {"summary": "Видалити відгук", "value": {"review": None}},
+    "clear_progress": {
+        "summary": "Скинути прогрес",
+        "value": {"season": None, "episode": None},
+    },
+}
 
 
 def _to_out(entry: LibraryEntry, title: MediaTitle) -> LibraryTitleOut:
@@ -112,13 +179,23 @@ def _load_entry(
     return entry, title
 
 
-@router.get("", response_model=ListResponse)
+@router.get(
+    "",
+    response_model=ListResponse,
+    summary="Мої списки",
+    description="Усі тайтли користувача з його статусами, оцінками, відгуками й прогресом.",
+    responses={**UNAUTHORIZED, **VALIDATION},
+)
 def list_entries(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db_session)],
     _settings: Annotated[Settings, Depends(get_settings)],
-    status_filter: Annotated[LibraryStatus | None, Query(alias="status")] = None,
-    type_filter: Annotated[MediaType | None, Query(alias="type")] = None,
+    status_filter: Annotated[
+        LibraryStatus | None, Query(alias="status", description="Фільтр за статусом.")
+    ] = None,
+    type_filter: Annotated[
+        MediaType | None, Query(alias="type", description="Фільтр за типом тайтлу.")
+    ] = None,
 ) -> ListResponse:
     query = (
         select(LibraryEntry, MediaTitle)
@@ -134,9 +211,15 @@ def list_entries(
     return ListResponse(items=[_to_out(entry, title) for entry, title in rows])
 
 
-@router.get("/{title_id}", response_model=EntryResponse)
+@router.get(
+    "/{title_id}",
+    response_model=EntryResponse,
+    summary="Мій запис про тайтл",
+    description="Статус, оцінка, відгук і прогрес користувача для одного тайтлу.",
+    responses={**UNAUTHORIZED, 404: _ENTRY_NOT_FOUND, **VALIDATION},
+)
 def get_entry(
-    title_id: UUID,
+    title_id: TitleIdParam,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db_session)],
 ) -> EntryResponse:
@@ -146,9 +229,18 @@ def get_entry(
     return EntryResponse(entry=_to_out(*row))
 
 
-@router.put("/{title_id}", response_model=EntryResponse)
+@router.put(
+    "/{title_id}",
+    response_model=EntryResponse,
+    summary="Додати в списки або змінити статус",
+    description=(
+        "Створює запис зі статусом або змінює статус наявного. "
+        "Оцінка, відгук і прогрес при цьому не змінюються."
+    ),
+    responses={**UNAUTHORIZED, 404: _TITLE_NOT_FOUND, **VALIDATION},
+)
 def put_entry(
-    title_id: UUID,
+    title_id: TitleIdParam,
     payload: StatusUpdate,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db_session)],
@@ -204,10 +296,39 @@ async def _validate_progress(
         )
 
 
-@router.patch("/{title_id}", response_model=EntryResponse)
+@router.patch(
+    "/{title_id}",
+    response_model=EntryResponse,
+    summary="Оцінка, відгук або прогрес",
+    description=(
+        "Змінює лише передані поля; `null` прибирає значення. Правила:\n\n"
+        "- треба передати хоча б одне поле; `season` і `episode` — тільки разом;\n"
+        "- якщо тайтлу ще немає у списках, оцінка або відгук додають його зі статусом "
+        "`completed`, прогрес — зі статусом `in_progress`; лише очищення — 404;\n"
+        "- для наявного запису статус не змінюється;\n"
+        "- прогрес доступний лише для серіалів і звіряється з TMDB: неіснуючий сезон чи "
+        "епізод — 400 з поясненням у `fields`.\n\n"
+        "Порушення правил першого пункту і порожній відгук дають 422 із загальним "
+        "повідомленням без `fields`."
+    ),
+    responses={
+        400: error(
+            "Прогрес для не-серіалу, неіснуючий сезон або епізод.",
+            "Такого епізоду немає",
+            {"episode": "У сезоні лише 8 епізодів"},
+        ),
+        **UNAUTHORIZED,
+        404: error(
+            "Тайтлу немає в БД, або запису немає і запит лише очищує значення.",
+            "Тайтл не знайдено",
+        ),
+        **VALIDATION,
+        503: error("TMDB не відповів під час перевірки прогресу.", "Не вдалося звіритися з TMDB"),
+    },
+)
 async def patch_entry(
-    title_id: UUID,
-    payload: EntryPatch,
+    title_id: TitleIdParam,
+    payload: Annotated[EntryPatch, Body(openapi_examples=PATCH_EXAMPLES)],
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db_session)],
     settings: Annotated[Settings, Depends(get_settings)],
@@ -277,9 +398,22 @@ async def patch_entry(
     return EntryResponse(entry=_to_out(entry, title))
 
 
-@router.delete("/{title_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{title_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Прибрати зі списків",
+    description=(
+        "Видаляє запис разом з оцінкою, відгуком і прогресом. Сам тайтл лишається в БД. "
+        "Повторне видалення теж повертає 204."
+    ),
+    responses={
+        204: {"description": "Запис видалено (або його й не було)."},
+        **UNAUTHORIZED,
+        **VALIDATION,
+    },
+)
 def delete_entry(
-    title_id: UUID,
+    title_id: TitleIdParam,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db_session)],
 ) -> Response:

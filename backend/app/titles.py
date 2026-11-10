@@ -3,11 +3,12 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import rawg, tmdb
+from app.api_docs import UNAUTHORIZED, VALIDATION, error
 from app.config import Settings, get_settings
 from app.database import get_db_session
 from app.deps import get_current_user
@@ -23,18 +24,34 @@ MediaType = Literal["movie", "series", "game"]
 class TitleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    provider: str
-    media_type: str
-    external_id: str
-    title: str
-    original_title: str | None = None
-    description: str | None = None
-    description_language: str | None = None
-    poster_url: str | None = None
-    year: int | None = None
-    genres: list[str] = []
-    seasons_count: int | None = None
+    id: UUID = Field(
+        description="Id тайтлу в MediaTrack. Саме його передають у `/api/me/titles/{title_id}`."
+    )
+    provider: Provider = Field(
+        description="Джерело: tmdb — фільми й серіали, rawg — ігри зі Steam.", examples=["tmdb"]
+    )
+    media_type: MediaType = Field(description="Тип тайтлу.", examples=["movie"])
+    external_id: str = Field(description="Id у джерелі (TMDB id або Steam appid).", examples=["603"])
+    title: str = Field(description="Назва.", examples=["Матриця"])
+    original_title: str | None = Field(
+        default=None, description="Оригінальна назва (лише TMDB).", examples=["The Matrix"]
+    )
+    description: str | None = Field(default=None, description="Опис; null, якщо його немає ніде.")
+    description_language: Literal["uk", "en"] | None = Field(
+        default=None,
+        description="Мова опису: uk або en (якщо українського немає); null, коли опису немає.",
+        examples=["uk"],
+    )
+    poster_url: str | None = Field(
+        default=None,
+        description="URL постера.",
+        examples=["https://image.tmdb.org/t/p/w342/matrix.jpg"],
+    )
+    year: int | None = Field(default=None, description="Рік виходу.", examples=[1999])
+    genres: list[str] = Field(default=[], description="Жанри.", examples=[["Фантастика", "Бойовик"]])
+    seasons_count: int | None = Field(
+        default=None, description="Кількість сезонів (лише для серіалів).", examples=[5]
+    )
 
 
 class TitleResponse(BaseModel):
@@ -42,14 +59,44 @@ class TitleResponse(BaseModel):
 
 
 class SeasonOut(BaseModel):
-    season_number: int
-    name: str | None = None
-    air_date: str | None = None
-    episode_count: int
+    season_number: int = Field(description="Номер сезону (від 1; спецвипуски не повертаються).", examples=[1])
+    name: str | None = Field(default=None, description="Назва сезону.", examples=["Сезон 1"])
+    air_date: str | None = Field(
+        default=None, description="Дата виходу у форматі YYYY-MM-DD.", examples=["2008-01-20"]
+    )
+    episode_count: int = Field(description="Кількість епізодів.", examples=[7])
 
 
 class SeasonsResponse(BaseModel):
-    seasons: list[SeasonOut]
+    seasons: list[SeasonOut] = Field(description="Сезони за зростанням номера.")
+
+
+_PROVIDER_PARAM = Path(
+    min_length=1,
+    max_length=10,
+    description="Джерело: tmdb (фільми, серіали) або rawg (ігри зі Steam).",
+    examples=["tmdb"],
+    json_schema_extra={"enum": ["tmdb", "rawg"]},
+)
+_MEDIA_TYPE_PARAM = Path(
+    min_length=1,
+    max_length=10,
+    description="Тип: movie або series для tmdb, game для rawg. Інша комбінація — 404.",
+    examples=["movie"],
+    json_schema_extra={"enum": ["movie", "series", "game"]},
+)
+_EXTERNAL_ID_PARAM = Path(
+    min_length=1,
+    max_length=64,
+    description="Id у джерелі: поле `id` з результатів пошуку.",
+    examples=["603"],
+)
+_NOT_FOUND = {
+    404: error(
+        "Невідома комбінація provider/media_type або джерело не знає такого id.",
+        "Такого тайтлу немає",
+    )
+}
 
 
 def _validate_provider_type(provider: str, media_type: str) -> None:
@@ -106,11 +153,18 @@ async def _fetch_from_provider(
 @router.get(
     "/{provider}/{media_type}/{external_id}",
     response_model=TitleResponse,
+    summary="Картка тайтлу",
+    description=(
+        "Повертає картку тайтлу. Перший запит тягне дані з TMDB або Steam і зберігає їх у БД; "
+        "наступні беруться з БД без запиту до джерела. Якщо українського опису немає, "
+        "береться англійський (`description_language = en`)."
+    ),
+    responses={**UNAUTHORIZED, **_NOT_FOUND, **VALIDATION},
 )
 async def get_title(
-    provider: Annotated[str, Path(min_length=1, max_length=10)],
-    media_type: Annotated[str, Path(min_length=1, max_length=10)],
-    external_id: Annotated[str, Path(min_length=1, max_length=64)],
+    provider: Annotated[str, _PROVIDER_PARAM],
+    media_type: Annotated[str, _MEDIA_TYPE_PARAM],
+    external_id: Annotated[str, _EXTERNAL_ID_PARAM],
     db: Annotated[Session, Depends(get_db_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     _: Annotated[User, Depends(get_current_user)],
@@ -153,11 +207,24 @@ async def get_title(
 @router.get(
     "/{provider}/{media_type}/{external_id}/seasons",
     response_model=SeasonsResponse,
+    summary="Сезони серіалу",
+    description=(
+        "Список сезонів з кількістю епізодів — для вибору прогресу. "
+        "Дані завжди беруться з TMDB, у БД не зберігаються. Лише для `tmdb/series`."
+    ),
+    responses={
+        **UNAUTHORIZED,
+        404: error(
+            "Не серіал TMDB або TMDB не знає такого серіалу.",
+            "Сезони доступні лише для серіалів TMDB",
+        ),
+        **VALIDATION,
+    },
 )
 async def get_seasons(
-    provider: Annotated[str, Path(min_length=1, max_length=10)],
-    media_type: Annotated[str, Path(min_length=1, max_length=10)],
-    external_id: Annotated[str, Path(min_length=1, max_length=64)],
+    provider: Annotated[str, _PROVIDER_PARAM],
+    media_type: Annotated[str, _MEDIA_TYPE_PARAM],
+    external_id: Annotated[str, _EXTERNAL_ID_PARAM],
     settings: Annotated[Settings, Depends(get_settings)],
     _: Annotated[User, Depends(get_current_user)],
 ) -> SeasonsResponse:
