@@ -4,9 +4,10 @@ from enum import Enum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app import rawg, tmdb
+from app.api_docs import UNAUTHORIZED, VALIDATION, error
 from app.config import Settings, get_settings
 from app.deps import get_current_user
 from app.exceptions import ApiError
@@ -25,7 +26,9 @@ class SearchType(str, Enum):
 
 
 class SearchResponse(BaseModel):
-    results: list[tmdb.SearchItem]
+    results: list[tmdb.SearchItem] = Field(
+        description="Результати: спершу фільми й серіали з TMDB, потім ігри зі Steam."
+    )
 
 
 async def _safe_tmdb(q: str, settings: Settings) -> tuple[list[tmdb.SearchItem], Exception | None]:
@@ -44,12 +47,36 @@ async def _safe_rawg(q: str, settings: Settings) -> tuple[list[tmdb.SearchItem],
         return [], exc
 
 
-@router.get("", response_model=SearchResponse)
+@router.get(
+    "",
+    response_model=SearchResponse,
+    summary="Пошук тайтлів",
+    description=(
+        "Шукає фільми й серіали в TMDB (українською) та ігри в Steam (англійською). "
+        "Персони з TMDB, саундтреки й DLC зі Steam відкидаються. Якщо одне джерело "
+        "недоступне, повертаються результати іншого; 503 — лише коли не відповіло жодне "
+        "і результатів немає."
+    ),
+    responses={
+        **UNAUTHORIZED,
+        **VALIDATION,
+        503: error(
+            "Жодне з потрібних джерел (TMDB, Steam) не відповіло.",
+            "Пошук тимчасово недоступний. Спробуйте пізніше.",
+        ),
+    },
+)
 async def search(
-    q: Annotated[str, Query(min_length=1, max_length=200)],
+    q: Annotated[
+        str,
+        Query(min_length=1, max_length=200, description="Пошуковий запит.", examples=["Матриця"]),
+    ],
     settings: Annotated[Settings, Depends(get_settings)],
     _: Annotated[User, Depends(get_current_user)],
-    type: Annotated[SearchType, Query()] = SearchType.all,
+    type: Annotated[
+        SearchType,
+        Query(description="Що шукати: all — усе, movie / series — лише TMDB, game — лише Steam."),
+    ] = SearchType.all,
 ) -> SearchResponse:
     want_titles = type in (SearchType.all, SearchType.movie, SearchType.series)
     want_games = type in (SearchType.all, SearchType.game)

@@ -1,17 +1,32 @@
 """Thin TMDB client. Only /search/multi used for now."""
 
+from typing import Literal
+
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.config import Settings
 
 
 class SearchItem(BaseModel):
-    id: str
-    type: str
-    title: str
-    year: int | None = None
-    poster: str | None = None
+    id: str = Field(
+        description=(
+            "Id у джерелі: TMDB id для фільмів і серіалів, Steam appid для ігор. "
+            "Це `external_id` для `GET /api/titles/{provider}/{media_type}/{external_id}`."
+        ),
+        examples=["603"],
+    )
+    type: Literal["movie", "series", "game"] = Field(
+        description="Тип: movie і series — з TMDB (provider tmdb), game — зі Steam (provider rawg).",
+        examples=["movie"],
+    )
+    title: str = Field(description="Назва (для TMDB — українською, якщо є).", examples=["Матриця"])
+    year: int | None = Field(default=None, description="Рік виходу; null, якщо невідомий.", examples=[1999])
+    poster: str | None = Field(
+        default=None,
+        description="URL постера; null, якщо постера немає.",
+        examples=["https://image.tmdb.org/t/p/w342/matrix.jpg"],
+    )
 
 
 class TMDBError(Exception):
